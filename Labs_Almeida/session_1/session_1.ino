@@ -1,5 +1,3 @@
-#include <math.h>
-
 // Global variables
 
 // Unchangeable
