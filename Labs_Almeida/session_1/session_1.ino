@@ -49,7 +49,7 @@ void get_ldr_value() {
   
   unsigned short sensorValue = analogRead(LDR_ANALOG); // Read brightness
   
-  byte voltageOut = map( sensorValue, 0, MAX_ANALOG, 0, VCC); // Map analog value to vcc scale
+  float voltageOut = map( sensorValue, 0, (float)MAX_ANALOG, 0, (float)VCC); // Map analog value to vcc scale
   
   if(ldr_status != voltageOut) // print out the value you read:
     Serial.println("LUX value: " + String(voltageToLux(voltageOut)));
