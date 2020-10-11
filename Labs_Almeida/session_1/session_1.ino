@@ -2,24 +2,30 @@
 
 // Unchangeable
 #define COMMUNICATION 9600 // communication
-#define VCC 5  // Voltage 
+#define VCC 5.0  // Power supply 
 #define LED_PWM 3 // PWM pin
 #define R1 1E4  // Resistor
 #define LED_PWM 3 // PWM pin 3
 #define LDR_ANALOG A0 // Analog pin 0
-#define MAX_ANALOG 1023 // maximum analog value 10 bits
-#define MAX_DIGITAL 255 // maximum digital value 8 bits
+#define MAX_ANALOG 1023.0 // maximum analog value 10 bits
+#define MAX_DIGITAL 255.0 // maximum digital value 8 bits
 
 #define DEBUG 1
 
 // Changeable
-byte ldr_status = VCC + 0.1; // different from any value that the next can be
+float ldr_status = VCC + 0.1; // different from any value that the next can be
+
+// function
+void led_performance();
+void get_ldr_value();
+float voltageToLux(float v0);
 
 void setup() {
   
   // initialize serial communication at 9600 bits per second:
   Serial.begin(COMMUNICATION);
   pinMode(LED_PWM, OUTPUT);
+
 }
 
 void loop() {
@@ -49,18 +55,20 @@ void get_ldr_value() {
   
   unsigned short sensorValue = analogRead(LDR_ANALOG); // Read brightness
   
-  float voltageOut = map( sensorValue, 0, (float)MAX_ANALOG, 0, (float)VCC); // Map analog value to vcc scale
+  float voltageOut = sensorValue*(VCC/MAX_ANALOG); // Map analog value to vcc scale
+  float voltageLux = voltageToLux(voltageOut);
+  float threshold = 0.03;
   
-  if(ldr_status != voltageOut) // print out the value you read:
-    Serial.println("LUX value: " + String(voltageToLux(voltageOut)));
-
-    ldr_status = voltageOut; 
+  if(abs(ldr_status - voltageLux) > threshold){ // print out the value you read:
+    Serial.println("LUX value: " + String(voltageLux));
+    ldr_status = voltageLux;
+  }
 }
 
 float voltageToLux(float v0) {
   
-  float m = -1.7780; //slope
-  float b = 4.778; // Intersection = log10(60000)kOhm
+  float m = -1.67398563022854; //slope
+  float b = 10.615599157161045; // 
 
   float function = (log10((VCC / v0) * R1 - R1) - b) / m;
   float lux = pow(10, function);
