@@ -26,25 +26,25 @@ def load_variables(name_file_x: str,) -> (np.array,np.array):
     temp = temp.rsplit('\r\n')  # slip each line
     temp.pop()  # remove last line
 
-    vo_ = []
+    lux_ = []
     R2 = []
 
     for line in temp:
         s = line.rsplit('\t')
-        vo_.append(s[0])
+        lux_.append(s[0])
         R2.append(s[1])
 
-    vo_ = np.array(vo_, dtype=np.float64)
+    lux_ = np.array(lux_, dtype=np.float64)
     R2 = np.array(R2, dtype=np.float64)
 
 
     N = max(R2.shape)    # number of polynomials
-    vo = np.ones(shape=(N, 2), dtype=np.float)
+    lux = np.ones(shape=(N, 2), dtype=np.float)
+    lux[:,1] = np.log(lux_)
 
-    vo[:,1] = np.log(vo_)
     R2 = np.log(R2)
 
-    return (vo,R2)
+    return (lux,R2)
 
 
 # Question 2.1.3
