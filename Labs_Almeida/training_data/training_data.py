@@ -11,7 +11,7 @@ def computeBeta(x: np.array, y: np.array) -> np.array:
     
     beta = inv(x.T@x)@x.T@y # compute beta
 
-    if DEBUG: print(f"log10(R) = {beta[1]}m + {beta[0]}\n\nm -> {beta[1]}\nb -> {beta[0]}")
+    if DEBUG: print(f"log10(R) = {beta[1]}m + {beta[0]}\n\nm -> {beta[1]}")
 
     return beta
 
