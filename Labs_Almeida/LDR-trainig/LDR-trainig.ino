@@ -45,7 +45,7 @@ void getMatrix(){
     
     R2 = (VCC-vo)*R1/vo;
     
-    Serial.print(log(vo));
+    Serial.print(vo);
     Serial.print('\t');
     Serial.println(R2);
 
