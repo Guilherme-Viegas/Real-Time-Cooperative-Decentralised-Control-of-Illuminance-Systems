@@ -49,7 +49,7 @@ def load_variables(name_file_x: str,) -> (np.array,np.array):
 
 
 # Question 2.1.3
-x1,y1,b = load_variables('training_data2.txt')
+x1,y1,b = load_variables('training_data3.txt')
 
 # Question 2.1.3.a)
 beta = computeBeta(x1,y1)

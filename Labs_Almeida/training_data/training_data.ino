@@ -33,7 +33,7 @@ void getMatrix(){
   for(int i=0; i<SIZE_DATA; i++){
 
     b = analogRead(LED_PWM);
-    analogWrite(LED_PWM, random(0, 101));
+    analogWrite(LED_PWM, random(1  , 101));
     
     do{
       delay(1);
@@ -44,7 +44,7 @@ void getMatrix(){
     
     R2 = (VCC-vo)*R1/vo;
     
-    Serial.print(vo);
+    Serial.print(b*100.0/255.0);
     Serial.print('\t');
     Serial.println(R2);
 
