@@ -3,18 +3,11 @@ from numpy.linalg import inv, eig
 import matplotlib.pyplot as plt
 import codecs
 
-# plot information on the console
-DEBUG = True
+TRAINING = False
 
-# Question 2.1.2
+
 def computeBeta(x: np.array, y: np.array) -> np.array:
-    
-    beta = inv(x.T@x)@x.T@y # compute beta
-
-    if DEBUG: print(f"Linear Reression: log10(R) = {beta[1]}m + {beta[0]}\n")
-
-    return beta
-
+    return inv(x.T@x)@x.T@y # compute beta
 
 # load variables from files and check their dimensions
 def load_variables(name_file_x: str,) -> (np.array,np.array):
@@ -24,8 +17,7 @@ def load_variables(name_file_x: str,) -> (np.array,np.array):
 
     temp = f.read() # read file
     temp = temp.rsplit('\r\n')  # slip each line
-
-    b = float(temp.pop())
+    temp.pop() # remove last line
 
     lux_ = []
     R2 = []
@@ -37,22 +29,27 @@ def load_variables(name_file_x: str,) -> (np.array,np.array):
 
     lux_ = np.array(lux_, dtype=np.float64)
     R2 = np.array(R2, dtype=np.float64)
-
+    R2 = np.log10(R2)
 
     N = max(R2.shape)    # number of polynomials
     lux = np.ones(shape=(N, 2), dtype=np.float)
     lux[:,1] = np.log10(lux_)
 
-    R2 = np.log10(R2)
-
-    return (lux,R2, np.log10(b))
+    return (lux,R2)
 
 
-# Question 2.1.3
-x1,y1,b = load_variables('training_data3.txt')
 
-# Question 2.1.3.a)
-beta = computeBeta(x1,y1)
-fit = x1@beta
-print(f"Data size: {max(y1.shape)}")
-print(f"Model Fit: log10(R) = {beta[1]}m + {b}\n")
+if TRAINING:
+
+    x,y = load_variables('training_data3.txt')
+    beta = computeBeta(x,y)
+    fit = x@beta
+    print(f"Data size: {max(y.shape)}")
+    print(f"Model Fit: log10(R) = {beta[1]}m + {beta[0]}\n")
+
+
+else:
+
+    x,y = load_variables('results2.txt')
+    plt.scatter(x[:,1],y, lw=1)
+    plt.show()
