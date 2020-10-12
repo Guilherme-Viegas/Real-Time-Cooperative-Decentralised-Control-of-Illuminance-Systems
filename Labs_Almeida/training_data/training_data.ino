@@ -4,29 +4,28 @@
 #define MAX_ANALOG 1023.0 // maximum analog value 10 bits
 #define VCC 5.0  // Power supply 
 
-#define SIZE_DATA 1000
+#define SIZE_DATA 1e4
 
 void getMatrix();
+void getDarkness();
 
 float vo = 0.0;
 float R2 = 0.0;
 // float x[SIZE_DATA] = {0.0};
 // float y[SIZE_DATA] = {0.0};
-
 void setup() {
 
   Serial.begin(9600);
 
   pinMode(LED_PWM, OUTPUT);
+  delay(3e3);
+  getMatrix();
+  getDarkness();
 
 
 }
 
-void loop(){
-  
-  if(Serial.available()==1)
-    getMatrix();
-}
+void loop(){}
 
 void getMatrix(){
 
@@ -34,7 +33,7 @@ void getMatrix(){
   for(int i=0; i<SIZE_DATA; i++){
 
     b = analogRead(LED_PWM);
-    analogWrite(LED_PWM, random(0, 256));
+    analogWrite(LED_PWM, random(0, 101));
     
     do{
       delay(1);
@@ -51,7 +50,18 @@ void getMatrix(){
 
     // x[i] = vo;
     // y[i] = R2;
-    
   }
-
 }
+
+void getDarkness(){
+  
+    byte b = 1;
+    analogWrite(LED_PWM, 0);
+
+    delay(1e3); //wait until the darkness
+
+    vo = analogRead(LDR_ANALOG) * VCC/MAX_ANALOG;
+    R2 = (VCC-vo)*R1/vo;
+    Serial.print(R2);
+  
+  }

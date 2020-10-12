@@ -67,8 +67,8 @@ void get_ldr_value() {
 
 float voltageToLux(float v0) {
   
-  float m = -1.67398563022854; //slope
-  float b = log10(50e3); // //Intersection = log10(60000)kOhm
+  float m = -1.6247746526540148;
+  float b = 5.963787827345556; // //Intersection = log10(60000)kOhm
 
   float function = (log10((VCC / v0) * R1 - R1) - b) / m;
   float lux = pow(10, function);

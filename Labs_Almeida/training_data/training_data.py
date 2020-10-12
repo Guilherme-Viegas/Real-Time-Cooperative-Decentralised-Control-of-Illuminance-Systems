@@ -11,7 +11,7 @@ def computeBeta(x: np.array, y: np.array) -> np.array:
     
     beta = inv(x.T@x)@x.T@y # compute beta
 
-    if DEBUG: print(f"log10(R) = {beta[1]}m + {beta[0]}\n\nm -> {beta[1]}")
+    if DEBUG: print(f"Linear Reression: log10(R) = {beta[1]}m + {beta[0]}\n")
 
     return beta
 
@@ -24,7 +24,8 @@ def load_variables(name_file_x: str,) -> (np.array,np.array):
 
     temp = f.read() # read file
     temp = temp.rsplit('\r\n')  # slip each line
-    temp.pop()  # remove last line
+
+    b = float(temp.pop())
 
     lux_ = []
     R2 = []
@@ -40,16 +41,18 @@ def load_variables(name_file_x: str,) -> (np.array,np.array):
 
     N = max(R2.shape)    # number of polynomials
     lux = np.ones(shape=(N, 2), dtype=np.float)
-    lux[:,1] = np.log(lux_)
+    lux[:,1] = np.log10(lux_)
 
-    R2 = np.log(R2)
+    R2 = np.log10(R2)
 
-    return (lux,R2)
+    return (lux,R2, np.log10(b))
 
 
 # Question 2.1.3
-x1,y1 = load_variables('training_data.txt')
+x1,y1,b = load_variables('training_data2.txt')
 
 # Question 2.1.3.a)
 beta = computeBeta(x1,y1)
 fit = x1@beta
+print(f"Data size: {max(y1.shape)}")
+print(f"Model Fit: log10(R) = {beta[1]}m + {b}\n")
