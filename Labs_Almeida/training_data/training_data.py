@@ -2,12 +2,10 @@ import numpy as np
 from numpy.linalg import inv, eig
 import matplotlib.pyplot as plt
 import codecs
+from sklearn.linear_model import LinearRegression
 
-TRAINING = False
+MULTIPLE = False
 
-
-def computeBeta(x: np.array, y: np.array) -> np.array:
-    return inv(x.T@x)@x.T@y # compute beta
 
 # load variables from files and check their dimensions
 def load_variables(name_file_x: str) -> (np.array,np.array):
@@ -17,15 +15,22 @@ def load_variables(name_file_x: str) -> (np.array,np.array):
 
     temp = f.read() # read file
     temp = temp.rsplit('\r\n')  # slip each line
-    temp.pop() # remove last line
+    #temp.pop() # remove last line
 
-    lux = []
-    R2 = []
-
+    lux = [[],]
+    R2 = [[],]
+    i = 0
     for line in temp:
+        
+        if line == 'STEP':
+            i+=1
+            lux.append([])
+            R2.append([])
+            continue
+
         s = line.rsplit('\t')
-        lux.append(s[0])
-        R2.append(s[1])
+        lux[i].append(s[0])
+        R2[i].append(s[1])
 
     lux = np.array(lux, dtype=np.float64)
     R2 = np.array(R2, dtype=np.float64)
@@ -33,29 +38,70 @@ def load_variables(name_file_x: str) -> (np.array,np.array):
     return (lux,R2)
 
 
-def format_variables(R2: np.array, lux_: np.array) -> (np.array,np.array):
+def mean_vect(x,y):
+    a = []
+    for i in range(256):
+        b = y[x==i]
+        a.append(b.mean())
 
-    R2 = np.log10(R2)
+    return a
 
-    N = max(R2.shape)    # number of polynomials
-    lux = np.ones(shape=(N, 2), dtype=np.float)
-    lux[:,1] = np.log10(lux_)
-
-    return (lux,R2)
+def computeSSE(y: np.array, fit: np.array) -> np.array:
 
 
-if TRAINING:
+    y = y.reshape(-1, 1)
+    fit = fit.reshape(-1, 1)
 
-    x,y = load_variables('training_data3.txt')
-    x,y = format_variables(x,y)
-    beta = computeBeta(x,y)
-    fit = x@beta
-    print(f"Data size: {max(y.shape)}")
-    print(f"Model Fit: log10(R) = {beta[1]}m + {beta[0]}\n")
+    e = y - fit # compute error vector
+    sse = e.T@e # compute SSE
 
+    return sse
+
+filename='calibrated.txt'
+
+best = []
+if MULTIPLE:
+    xx,yy = load_variables(filename)
+    for i in range(len(yy)):
+        x=xx[i]
+        y=yy[i]
+        a = np.array(mean_vect(x,y)).reshape(-1, 1)
+
+        declive = (a[-1]-a[0])/255
+        Y = np.linspace(a[0],a[-1],256).reshape(-1, 1)
+
+        plt.figure()
+        plt.plot(a,lw=2)
+        plt.plot(Y, ls='--', color='red')
+        plt.draw()
+        best.append(computeSSE(a,Y))
+        print(f'SSE: {best[-1]}')
+        breakpoint
 
 else:
 
-    x,y = load_variables('results2.txt')
-    plt.scatter(x,y, s=1)
-    plt.show()
+    x,y = load_variables(filename)
+    a = np.array(mean_vect(x,y)).reshape(-1, 1)
+    plt.figure()
+    plt.plot(a,lw=2)
+    plt.plot((0,255),(a[0],a[-1]), ls='--', color='red', lw=0.5)
+    plt.draw()
+
+    X = np.linspace(0,255,256).reshape(-1, 1)
+    Y = np.linspace(a[0],a[-1],256).reshape(-1, 1)
+    best.append(computeSSE(a,Y))
+
+    print(f'SSE: {best[-1]}')
+    
+    beta = inv(X.T@X)@(X.T@a)
+
+    print(f'G: {beta[0][0]} [Lux/PWM]')
+
+
+plt.xlabel('PWM')
+plt.ylabel('Lux')
+plt.show()
+
+
+breakpoint
+
