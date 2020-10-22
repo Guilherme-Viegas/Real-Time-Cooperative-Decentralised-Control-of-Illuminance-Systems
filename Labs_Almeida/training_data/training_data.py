@@ -1,11 +1,12 @@
 import numpy as np
-from numpy.linalg import inv, eig
+from numpy.linalg import inv
 import matplotlib.pyplot as plt
 import codecs
-from sklearn.linear_model import LinearRegression
+
 
 MULTIPLE = False
-
+IMAGE = True
+CALC_TAU_TEORICO = False
 
 # load variables from files and check their dimensions
 def load_variables(name_file_x: str) -> (np.array,np.array):
@@ -18,25 +19,24 @@ def load_variables(name_file_x: str) -> (np.array,np.array):
     #temp.pop() # remove last line
 
     lux = [[],]
-    R2 = [[],]
+    PWM = [[],]
     i = 0
     for line in temp:
         
         if line == 'STEP':
             i+=1
             lux.append([])
-            R2.append([])
+            PWM.append([])
             continue
 
         s = line.rsplit('\t')
         lux[i].append(s[0])
-        R2[i].append(s[1])
+        PWM[i].append(s[1])
 
     lux = np.array(lux, dtype=np.float64)
-    R2 = np.array(R2, dtype=np.float64)
+    PWM = np.array(PWM, dtype=np.float64)
 
-    return (lux,R2)
-
+    return (lux,PWM)
 
 def mean_vect(x,y):
     a = []
@@ -57,51 +57,64 @@ def computeSSE(y: np.array, fit: np.array) -> np.array:
 
     return sse
 
-filename='calibrated.txt'
 
 best = []
 if MULTIPLE:
-    xx,yy = load_variables(filename)
+    xx,yy = load_variables('multiples3.txt')
     for i in range(len(yy)):
         x=xx[i]
         y=yy[i]
-        a = np.array(mean_vect(x,y)).reshape(-1, 1)
+        lux = np.array(mean_vect(x,y)).reshape(-1, 1)
 
-        declive = (a[-1]-a[0])/255
-        Y = np.linspace(a[0],a[-1],256).reshape(-1, 1)
+        declive = (lux[-1]-lux[0])/255
+        Y = np.linspace(lux[0],lux[-1],256).reshape(-1, 1)
 
         plt.figure()
-        plt.plot(a,lw=2)
+        plt.plot(lux,lw=2)
         plt.plot(Y, ls='--', color='red')
         plt.draw()
-        best.append(computeSSE(a,Y))
+        best.append(computeSSE(lux,Y))
         print(f'SSE: {best[-1]}')
         breakpoint
 
 else:
 
-    x,y = load_variables(filename)
-    a = np.array(mean_vect(x,y)).reshape(-1, 1)
+    x,y = load_variables('calibrated3.txt')
+    lux = np.array(mean_vect(x,y)).reshape(-1, 1)
     plt.figure()
-    plt.plot(a,lw=2)
-    plt.plot((0,255),(a[0],a[-1]), ls='--', color='red', lw=0.5)
+    plt.plot(lux,lw=2)
+    plt.plot((0,255),(lux[0],lux[-1]), ls='--', color='red', lw=0.5)
     plt.draw()
 
     X = np.linspace(0,255,256).reshape(-1, 1)
-    Y = np.linspace(a[0],a[-1],256).reshape(-1, 1)
-    best.append(computeSSE(a,Y))
+    Y = np.linspace(lux[0],lux[-1],256).reshape(-1, 1)
+    best.append(computeSSE(lux,Y))
 
-    print(f'SSE: {best[-1]}')
+    print(f'SSE: {best[-1][0][0]}')
     
-    beta = inv(X.T@X)@(X.T@a)
+    beta = inv(X.T@X)@(X.T@lux)
 
     print(f'G: {beta[0][0]} [Lux/PWM]')
 
 
 plt.xlabel('PWM')
 plt.ylabel('Lux')
-plt.show()
+if IMAGE: plt.show()
 
+if CALC_TAU_TEORICO:
+    m = -0.672;
+    b = np.log10(5E4)
+    function = m*np.log10(lux)+b
+
+    R2_x = pow(10, function)
+    R1 = 1E4
+    C1 = 1E-6
+    Req_x = (R1*R2_x)/(R1+R2_x)
+    tau_teorico_x = C1*Req_x
+
+    plt.clf()
+    plt.plot(tau_teorico_x)
+    plt.show()
 
 breakpoint
 
