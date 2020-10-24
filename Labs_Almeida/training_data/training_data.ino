@@ -8,21 +8,22 @@ void setup() {
 
   pinMode(LED_PWM, OUTPUT);
   delay(1e3);
-
- 
-  for(int i=0; i<21; i++){
+  
+  
+  /*for(int i=0; i<20; i++){
     test_cont(-0.66-i*0.001);
     Serial.println("STEP");
 
     analogWrite(LED_PWM, 0);
     delay(1000);
-  }
+  }*/
 
-
+ 
   // test_cont(m);
-  // test_steps(m);
+  test_steps_down(m);
 
   analogWrite(LED_PWM, 0);
+  Serial.println("End");
 }
 
 

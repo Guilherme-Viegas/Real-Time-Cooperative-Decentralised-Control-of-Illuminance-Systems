@@ -1,8 +1,7 @@
 #include "training_data.h"
 
 volatile unsigned short analog_value;
-volatile unsigned long t = 0;
-volatile boolean flag = false;
+volatile boolean flag_itr = false;
 
 float voltage_to_lux(float v0, float m){
   
@@ -20,7 +19,7 @@ void test_cont(float m){
   float lux = 0.0;
   float voltageOut = 0.0;
   
-  int cicles = 4*510;
+  int cicles = 5*510;
   
   for(int i=0; i<cicles; i++){
 
@@ -45,63 +44,114 @@ void test_cont(float m){
    delay(20);
 }
 
-void test_steps(float m){
+void test_steps_up(float m){
 
-  unsigned long time_start;
   Timer1.start();
 
-  unsigned long  size = 1000100; // just in case
-  int b;
+  short  size_b = 400; // Atention
+  short b;
+  
+  unsigned short time_array[size_b];
+  unsigned short voltageOut[size_b];
+  
+  unsigned short t = 0; 
 
-  unsigned long time_array[size];
-  float voltageOut[size];
-
-  float step_response;
-
-
+  unsigned int step_response;
+  int samp_time_micro = 1000; // initialize timer1, and set a 1KHz;
+  Serial.println(samp_time_micro);
+  
   for(byte pwm = 1; pwm != 0; pwm++){
 
     analogWrite(LED_PWM, pwm);
-    delay(100);
+    delay(500);
     step_response = analogRead(LDR_ANALOG);
     analogWrite(LED_PWM, 0);
-    delay(100);
+    
+    while(analogRead(LDR_ANALOG) != 0){delay(10);} // wait until there is no light
 
     b=-1;
-    //time_start = micros();
     t=0;
-    Timer1.initialize(200); // initialize timer1, and set a 5KHz
-    Timer1.attachInterrupt(tau_interruption); 
+
+    Timer1.initialize(samp_time_micro); 
+    Timer1.attachInterrupt(tau_interruption);
     analogWrite(LED_PWM, pwm);
-    
+
     do{
-      if(flag){
+      if(flag_itr){
           voltageOut[++b] = analog_value;
-          time_array[b] = t;
-          flag = false;
+          time_array[b] = t++;
+          flag_itr = false;
       }
+    } while ( voltageOut[b] < step_response);
 
-    } while ( voltageOut[b] < 0.63*step_response);
     Timer1.detachInterrupt();
-
+    
     analogWrite(LED_PWM, 0);
-
+    
     Serial.print("PWM");
     Serial.print('\t');
     Serial.println(pwm);
-    Serial.print('\t');
-    Serial.println(step_response);
-    Serial.print('\t');
-    Serial.println(b);
-
 
     for(int i= 0; i <= b; i++ ){
       Serial.print(time_array[i]);
       Serial.print('\t');
-      //Serial.println(voltage_to_lux(voltageOut[i]*(VCC/MAX_ANALOG),m));
-      Serial.println(voltageOut[i]);
+      Serial.println(voltage_to_lux(voltageOut[i]*(VCC/MAX_ANALOG),m));
     }
+  }
 
+}
+
+void test_steps_down(float m){
+
+  Timer1.start();
+
+  short  size_b = 400; // Atention
+  short b;
+  
+  unsigned short time_array[size_b];
+  unsigned short voltageOut[size_b];
+  unsigned short t = 0;
+
+  unsigned int step_response;
+  int samp_time_micro = 1000; // initialize timer1, and set a 1KHz;
+  Serial.println(samp_time_micro);
+  
+  for(byte pwm = 254; pwm != 255; pwm--){
+
+    analogWrite(LED_PWM, pwm);
+    delay(500);
+    step_response = analogRead(LDR_ANALOG);
+    analogWrite(LED_PWM, 255);
+    delay(500);
+
+    b=-1;
+    t=0;
+
+    Timer1.initialize(samp_time_micro); 
+    Timer1.attachInterrupt(tau_interruption);
+    analogWrite(LED_PWM, pwm);
+  
+    do{
+      if(flag_itr){
+          voltageOut[++b] = analog_value;
+          time_array[b] = t++;
+          flag_itr = false;
+      }
+    } while ( voltageOut[b] > step_response);
+  
+    Timer1.detachInterrupt();
+
+     analogWrite(LED_PWM, 255);
+    
+    Serial.print("PWM");
+    Serial.print('\t');
+    Serial.println(pwm);
+
+    for(int i= 0; i <= b; i++ ){
+      Serial.print(time_array[i]);
+      Serial.print('\t');
+      Serial.println(voltage_to_lux(voltageOut[i]*(VCC/MAX_ANALOG),m));
+    }
   }
 
 }
@@ -109,6 +159,5 @@ void test_steps(float m){
 void tau_interruption()
 {
   analog_value = analogRead(LDR_ANALOG);
-  flag = true;
-  t++;
+  flag_itr = true;
 }
