@@ -15,9 +15,9 @@
 
 
 float voltage_to_lux(float v0, float m);
-void test_cont(float m);
-void test_steps_up(float m);
-void test_steps_down(float m);
+void compute_m(float m, boolean G);
+void steps_up(float m);
+void steps_down(float m);
 void tau_interruption();
 
 #endif
