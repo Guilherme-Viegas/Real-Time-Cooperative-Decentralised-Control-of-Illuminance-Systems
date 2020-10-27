@@ -1,12 +1,23 @@
 #include <math.h>
 
+
+#define LDR_ANALOG A0 // Analog pin 0
+#define LED_PWM 3 // PWM pin 3
+#define MAX_ANALOG 1023.0 // maximum analog value 10 bits
+#define VCC 5.0  // Power supply 
+
+#define m -0.77
+#define b 50000
+#define C1 0.000001
+#define R1 10000
+
 String inBytes;
 int pwmVal = 0;
 
 void setup() {
   // initialize serial communication at 9600 bits per second:
   Serial.begin(9600);
-  pinMode(10, OUTPUT);
+  pinMode(LED_PWM, OUTPUT);
 }
 
 void loop() {
@@ -15,14 +26,14 @@ void loop() {
       inBytes = Serial.readString();
       Serial.print("I received: ");
       Serial.println(inBytes);
-      analogWrite(10, map(inBytes.toInt(), 0, 100, 0, 255));
+      analogWrite(LED_PWM, map(inBytes.toInt(), 0, 100, 0, 255));
     }
     delay(10);
 }
 
 void readLdr() {
     // read the input on analog pin 0:
-    int sensorValue = analogRead(A0);
+    int sensorValue = analogRead(LDR_ANALOG);
     // Convert the analog reading (which goes from 0 - 1023) to a percentage (0-100)
     float voltageOut = sensorValue * (5.0 / 1023.0);
     // print out the value you read:

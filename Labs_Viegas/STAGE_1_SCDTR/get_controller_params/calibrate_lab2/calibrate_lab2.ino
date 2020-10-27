@@ -10,19 +10,21 @@
 #define R1 10000
 
 const byte mask= B11111000; // mask bits that are not prescale
-int prescale = 2; //second fastest possible (1 for fastest)
+const int prescale = 1; //fastest possible (1 for fastest)
 
 volatile bool flag;
-volatile int value = -1;
-volatile long val_time = -1;
+volatile int counter = 0;
+volatile int value[71];
+volatile long val_time[71];
 
 float vo = 0.0;
 
 //Interrupt for analog reading 
 ISR(TIMER1_COMPA_vect){
   flag = 1; //notify main loop
-  value = analogRead(LDR_ANALOG);
-  val_time = micros();        
+  value[counter] = analogRead(LDR_ANALOG);
+  val_time[counter] = micros() - val_time[0];
+  counter++;
 }
 
 //(LUX, R2 em Ohm)
@@ -74,69 +76,109 @@ float voltageToAnalog(float analogInput) {
   return (analogInput * 1023.0) / VCC;
 }
 
-void computeTau(int inputPort, int outputPort) {
+void computeTauUp(int inputPort, int outputPort) {
   
   for(int i=0; i<256; i+=5){
-    Serial.print("PWM:");
-    Serial.println(i);
+    counter=0;
     //Serial.print("Expected Theorical Max: ");
     //Serial.println(voltageToAnalog(getTheoricX(((float)(i))*G)));
     analogWrite(outputPort, i);
     unsigned long startTime = micros();
-    Serial.print("Start:");
-    Serial.println(startTime);
+    value[counter] = -1;
+    val_time[counter] = micros();
+    counter++;
 
     sei(); //enable interrupt
-    while(micros() - startTime < 500000) {
+    while(micros() - startTime < 350000) { //Teacher instructed for 0.5s but it's to much, with 0.35 I have less points on the stable part so that I can have more on the unstable
       if(flag) { //Post-interrupt related Operations
-          Serial.print(value);
-          Serial.print(" ");
-          Serial.println(val_time);
         flag = 0;
       }
-      //vo = analogRead(inputPort);
-      //Serial.print(vo);
-      //Serial.print(" ");
-      //Serial.println(micros() - startTime);
     }
     cli(); //disable interrupt
-    Serial.println();
-    //Serial.print("End:");
-    //Serial.println(micros());
-    //Serial.println("&");
+    //TCCR1A = 0; // clear register
+    //TCCR1B = 0; // clear register
+    //TCNT1 = 0; //reset counter
 
     analogWrite(outputPort, 0); //To make a step that always returns to zero...To get better values of tau
-    delay(50);
+    Serial.print("PWM: ");
+    Serial.println(i);
+    for(int j=1; j<71; j++) {
+      Serial.print(value[j]);
+      Serial.print(" ");
+      Serial.println(val_time[j]);
+      value[j] = 0;
+      val_time[j] = 0;
+    }
+    Serial.println("STEP");
+    delay(60);
+    
+  }
+  
+}
+
+
+void computeTauDown(int inputPort, int outputPort) {
+  
+  for(int i=160; i>=0; i-=5){
+    counter=0;
+    analogWrite(outputPort, i);
+    unsigned long startTime = micros();
+    value[counter] = -1;
+    val_time[counter] = micros();
+    counter++;
+
+    sei(); //enable interrupt
+    while(micros() - startTime < 350000) { //Teacher instructed for 0.5s but it's to much, with 0.35 I have less points on the stable part so that I can have more on the unstable
+      if(flag) { //Post-interrupt related Operations
+        flag = 0;
+      }
+    }
+    cli(); //disable interrupt
+    //TCCR1A = 0; // clear register
+    //TCCR1B = 0; // clear register
+    TCNT1 = 0; //reset counter
+
+    analogWrite(outputPort, 255); //To make a step that always returns to zero...To get better values of tau
+    Serial.print("PWM: ");
+    Serial.println(i);
+    for(int j=1; j<71; j++) {
+      Serial.print(value[j]);
+      Serial.print(" ");
+      Serial.println(val_time[j]);
+      value[j] = 0;
+      val_time[j] = 0;
+    }
+    Serial.println("STEP");
+    delay(60);
+    
   }
   
 }
 
 
 void setup() {
-  Serial.begin(38500);
+  Serial.begin(9600);
   pinMode(LED_PWM, OUTPUT);
   TCCR2B = (TCCR2B & mask) | prescale;  //Raise Timer2 (pwm of port 3) for ldr not sensing led flicker
 
   //Fo preparing the Sampling Period Timer Interrupt
   //I STILL DONT KNOW MUCH ABOUT WHATS HAPPENING HERE
-  //...ok now I know a bit more...On each 0.5s step I want samples of 0.005s = 200Hz (50 samples)
-  //...I thaught it was from that(need of 500samples) but stills doesn´t catch those first samples near 0, so trying not printing to serial maybe
-  //...Actually tried to raise the serial baud rate from 9600 to 38400 and this problem improved a bit, but there's still room for some improvement
-  //cli(); //disable interrupts
+  //...ok now I know a bit more...On each 0.5s step I want samples of 0.005s = 200Hz (500 samples)(I tried with 50samples but then the time would be 0.01s and with that I couldn't pick the first values)
+  cli(); //disable interrupts
   TCCR1A = 0; // clear register
   TCCR1B = 0; // clear register
   TCNT1 = 0; //reset counter
   // OCR1A = desired_period/clock_period – 1 //This -1 is needed for Arduino specifics
   // = clock_freq/desired_freq - 1
-  // = (16*10^6 / 51200) - 1 / (200*1Hz) – 1  //Because prescale is 256, each second or 1Hz is 256, so 200Hz is 200*256
-  // = 311.5
-  OCR1A = 311; //must be <65536
+  // = (16*10^6 / 12800) - 1 / (200*1Hz) – 1  //Because prescale is 64, each second or 1Hz is 64, so 200Hz is 200*64
+  // = 1249
+  OCR1A = 1249; //must be <65536
   TCCR1B |= (1 << WGM12); //CTC On
-  // Set prescaler for 256 -
-  TCCR1B |= (1<<CS12);
+  // Set prescaler for 64 -
+  TCCR1B |= (1 << CS11) | (1 << CS10);
   // enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
-  //sei(); //enable interrupts
+  sei(); //enable interrupts
 }
 
 void loop() {
@@ -145,7 +187,9 @@ void loop() {
 
     //Now we want to compute the tau characteristic for different pwm input step values
     //Save it as tau.txt and run tau_plot.py
-    computeTau(LDR_ANALOG, LED_PWM);
+    //computeTauUp(LDR_ANALOG, LED_PWM);
+
+    computeTauDown(LDR_ANALOG, LED_PWM);
 
     while(1) {}
   }
