@@ -1,11 +1,13 @@
-#include "training_data.h"
+#include "ldr_fit.h"
+
+#define PRINT true
 
 volatile unsigned short analog_value;
 volatile boolean flag_itr = false;
 
-float voltage_to_lux(float v0, float m){
+float voltage_to_lux( float v0, float m, float b = log10(5E4)){
   
-  float b = log10(5E4); // guess value for the resistor during the dark
+  //ahahafloat b = log10(5E4); // value for the resistor during the dark
 
   float function = (log10((VCC / v0) * R1 - R1) - b) / m; // relation between lux and voltage read
   
@@ -14,14 +16,14 @@ float voltage_to_lux(float v0, float m){
   return lux;
 }
 
-void compute_m(float m, boolean G ){ 
+void compute_gain( float m, short ldr_pin, float *gain, float *offset){ 
 
   byte pwm = 0; // pwm to be written in led
   float flag = 1; // flag is 1 if the direction is up and 0 if it is down
   float lux = 0.0;  // lux computed 
   float voltageOut = 0.0; // voltage read in analog pin
 
-  byte cicle_times = 1; // number of times the mountain is done
+  byte cicle_times = 2; // number of times the mountain is done
   unsigned short cicles = cicle_times*510; // number of instants per mountain
   float b_mean = 0.0; // mean of b
   float m_mean = 0.0; // mean of m
@@ -32,14 +34,15 @@ void compute_m(float m, boolean G ){
     analogWrite(LED_PWM, pwm); // sets the pwm 
     delay(50);
  
-    voltageOut = analogRead(LDR_ANALOG)*(VCC/MAX_ANALOG); // read V0
+    voltageOut = analogRead(ldr_pin)*(VCC/MAX_ANALOG); // read V0
   
     lux = voltage_to_lux(voltageOut,m); // compute the lux
 
-    // wites in Serial the data to compute tau in the python file
-    Serial.print(pwm);    
-    Serial.print('\t');
-    Serial.println(lux);
+    if ( PRINT ){  // wites in Serial the data to compute tau in the python file
+      Serial.print(pwm);    
+      Serial.print('\t');
+      Serial.println(lux);
+    }
 
     if(pwm != 0){ // compute the gain in each instante
       m_mean += lux/(float)pwm;
@@ -59,21 +62,14 @@ void compute_m(float m, boolean G ){
   analogWrite(LED_PWM, 0); 
   delay(200);
 
-  b_mean = b_mean/cicle_times;     // offset to compensate unpleasent light in the dark
-  m_mean = m_mean/len_without_b;  // gain (G): x(t) = G*u(t)
+  *offset = b_mean/cicle_times;     // offset to compensate unpleasent light in the dark
+  *gain = m_mean/len_without_b;  // gain (G): x(t) = G*u(t)
 
-  if (G){ //prints computed gain
-  // print the gain and offset
-  Serial.print("Gain and offset is: Lux = "); 
-  Serial.print(m_mean, 4);
-  Serial.print(" * PWM + ");
-  Serial.println(b_mean, 4);
-  }
+  Serial.println("Gain and offset is: Lux = " + String(*gain, 4) + " * PWM + " + String(*offset, 4));
   
-   
 }
 
-void steps_up(float m){
+void steps_up( float m ){
 
   // static memory alocation
   short  size_b = 400; // size of the array that the data is stored 
@@ -144,7 +140,7 @@ void steps_up(float m){
 
 }
 
-void steps_down(float m){
+void steps_down( float m ){
 
   // static memory alocation
   short  size_b = 400; // size of the array that the data is stored 

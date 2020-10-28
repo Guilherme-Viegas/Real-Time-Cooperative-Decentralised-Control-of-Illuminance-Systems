@@ -6,7 +6,7 @@ from scipy.optimize import curve_fit
 
 MULTIPLE = False
 CALIBRATED = False
-CALC_TAU_TEORICO = True
+CALC_TAU_TEORICO = False
 IMAGE = True
 STEP_RESPONSE = True
 
@@ -227,7 +227,7 @@ if STEP_RESPONSE:
 
         # get parameters 
         coef_tau, _ = curve_fit(exp, pwm_array, tau, bounds=([0, -np.inf, 0],[np.inf, 0, np.inf]))
-        print('tau_{}: y = {:.6f} e^( {:.6f} x) + {:.6f}'.format(type, *coef_tau))
+        print('tau_{}: y = {:.6f} e^( {:.6f} lux) + {:.6f}'.format(type, *coef_tau))
 
 
         plt.figure(10 + steps.index(type))

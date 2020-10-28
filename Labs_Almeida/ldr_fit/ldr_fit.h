@@ -1,5 +1,5 @@
-#ifndef TRAINING_DATA_H
-#define TRAININGD_ATA_H
+#ifndef LDR_FIT_H
+#define LDR_FIT
 
 #include "Arduino.h"
 #include "TimerOne.h"
@@ -11,13 +11,12 @@
 #define VCC 5.0  // Power supply 
 #define MAX_DIGITAL 255.0 // maximum digital value 8 bits
 #define MAX_LED 100.0 // maximum digital value 8 bits
-#define SIZE 1000100 // just in case
 
 
-float voltage_to_lux(float v0, float m);
-void compute_m(float m, boolean G);
-void steps_up(float m);
-void steps_down(float m);
+float voltage_to_lux( float v0, float m, float b );
+void compute_gain( float m, short ldr_pin, float *gain, float *offset);
+void steps_up( float m );
+void steps_down( float m );
 void tau_interruption();
 
 #endif
