@@ -1,3 +1,8 @@
+/* We define:
+ *  Occupied == 20 lux 
+ *  Unoccupied == 5 lux
+*/
+
 #include "utils.h"
 #include "local_controller.h"
 
@@ -7,21 +12,7 @@ String inBytes;
 char *strings[13];
 char *ptr = NULL;
 
-void print_starting_menu() {
-  Serial.print("************************************************************************************************\n");
-  Serial.print("*                                   SERIAL INPUT OPTIONS                                       *\n");
-  Serial.print("* \"CREATE <led> <ldr> <G> <m> <b> <a_up> <b_up> <c_up> <a_down> <b_down> <c_down> <dead_time>\" *\n");
-  Serial.print("* \"READ\"  - To read LDR values in LUX                                                          *\n");
-  Serial.print("* \"SET <pwm value [0, 255]>\" - Light led with PWM                                              *\n");
-  Serial.print("* \"OCCUPIED\" - Set desk as occupied                                                            *\n");
-  Serial.print("* \"UNOCCUPIED\" - Set desk as unoccupied                                                        *\n");
-  Serial.print("* \"FEEDFORWARD <ON/OFF>\" - Switch on/off feedforward                                           *\n");
-  Serial.print("* \"FEEDBACK <ON/OFF>\" - Switch on/off feedback                                                 *\n");
-  Serial.print("*                                         DEBUGGING                                            *\n");
-  Serial.print("* \"COMPUTE G\" - Compute linear gain G (automathically saves G to controller)                   *\n");
-  Serial.print("* \"SIMULATE <vf> <vi> <ti> <t> <lux>\" - simulate v(t)                                          *\n");
-  Serial.print("************************************************************************************************\n\n");
-}
+bool occupied = true;
 
 float readLdr(Local_controller _controller) {
     int sensorValue = analogRead(_controller.get_ldr_port());
@@ -29,9 +20,8 @@ float readLdr(Local_controller _controller) {
 }
 
 void setup() {
-  Serial.begin(19200);
-  print_starting_menu();
-  
+  Serial.begin(9600);
+  Serial.println("Enter Input: ");  
 }
 
 void loop() {
@@ -41,6 +31,7 @@ void loop() {
     if(Serial.available() > 0) {
       byte index = 0;
       inBytes = Serial.readString();
+      Serial.println(inBytes);
 
       // Split string
       char *cstr = inBytes.c_str();
@@ -55,6 +46,7 @@ void loop() {
       //MENU INPUT STRING TREATMENT
       if(strcmp(strings[0], "SET") == 0) {
          //Setting the led to a pwm value
+         //TODO: this analog write i think is like the u_ff (u of feedforward)
         analogWrite(controller1.get_led_port(), atoi(strings[1]));
         Serial.print("LED SET TO ");
         Serial.print(strings[1]);
@@ -69,9 +61,12 @@ void loop() {
       } else if(strcmp(strings[0], "OCCUPIED") == 0) {
         //Set desk as occupied, which means we want the lux to be on certain high value, maybe 20LUX? My max lux is around 24LUX
         //TODO:
+        occupied = true;
+        analogWrite(controller1.get_led_port(), atoi(strings[1]));
       } else if(strcmp(strings[0], "UNOCCUPIED") == 0) {
         //Set desk as unoccupied, which means we want the lux to be on certain low value, maybe 5LUX? My max lux is around 24LUX
         //TODO:
+        occupied = false;
       } else if(strcmp(strings[0], "FEEDFORWARD") == 0) {
         //Enable/disable feedforward term
         //TODO:
@@ -82,16 +77,10 @@ void loop() {
         //Computes the linear gain G
         controller1.setG(controller1.compute_linear_gain());
       } else if(strcmp(strings[0], "SIMULATE") == 0) {
-        //Simulate a v(t) based on some inputs vf, vi, ti, t, lux pretended to obtain
-        Serial.println(controller1.simulate_Vt(atof(strings[1]), atof(strings[2]), atol(strings[3]), atol(strings[4]), atof(strings[5])));
+        Serial.println(controller1.simulate(atof(strings[1]), atof(strings[2]), atol(strings[3]), atol(strings[4])));
       } else {
         Serial.println("** PLEASE READ INPUT INSTRUCTIONS **");
       }
-
-      //free(strings);
-      //free(ptr);
-      //free(cstr);
-      controller1.print_params();
     }
   }
 

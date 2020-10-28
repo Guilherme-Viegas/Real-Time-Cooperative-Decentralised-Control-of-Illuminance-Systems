@@ -3,8 +3,8 @@
 
 class Local_controller {
   private:
-    int led_pwm_port;
-    int ldr_analog;
+    byte led_pwm_port;
+    byte ldr_analog;
 
     float G;
   
@@ -30,14 +30,12 @@ class Local_controller {
     float tau_up_function(float);
     float tau_down_function(float);
 
-    float simulate_Vt(float, float, long, long, float);
-
-    void print_params();
+    float simulate(float, float, long, long);
 
     //Getters
     float getG();
-    float get_led_port();
-    float get_ldr_port();
+    byte get_led_port();
+    byte get_ldr_port();
     float getM();
     float getB();
 
