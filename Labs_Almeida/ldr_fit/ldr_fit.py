@@ -18,7 +18,7 @@ def load_variables(name_file_x: str) -> (np.array,np.array):
     f = codecs.open(name_file_x, "r", "utf-16")
 
     temp = f.read() # read file
-    temp = temp.rsplit('\r\n')  # slip each line
+    temp = temp.replace('\r','').split('\n')  # slip each line
     #temp.pop() # remove last line
 
     lux = []
@@ -65,7 +65,7 @@ def load_response(name_file_x: str) -> (np.array,np.array):
     f = codecs.open(name_file_x, "r", "utf-16")
 
     temp = f.read() # read file
-    temp = temp.rsplit('\r\n')  # slip each line
+    temp = temp.replace('\r','').split('\n')  # slip each line
     #temp.pop() # remove last line
     time_offset = int(temp.pop(0))
 
@@ -146,7 +146,7 @@ if CALIBRATED:
 
     if CALC_TAU_TEORICO:
 
-        m = -0.672;
+        m = -0.66;
         b = np.log10(5E4)
         function = m*np.log10(lux[lux!=0])+b
 
@@ -172,7 +172,7 @@ if STEP_RESPONSE:
 
     for type in steps:
     
-        time, lux, lux_tau = load_response(f"text_files/{type}_step_reponse.txt")
+        time, lux, lux_tau = load_response(f"text_files/{type}_step_reponse2.txt")
 
         beta = []
         tau = []

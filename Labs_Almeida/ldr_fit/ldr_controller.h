@@ -22,7 +22,7 @@
  * @param c, c >= 0 ( Lux offset, time is positive defined )  
  */
 typedef class Tau{
-  
+
   private:
     float t_a = 0.0;
     float t_b = 0.0;
@@ -37,7 +37,7 @@ typedef class Tau{
       
 }TAU;
 
-class LdrController{
+typedef class LdrController{
   
   private:
     float t_m = 0.0;  // slope -> R2 = lux*m + b
@@ -46,21 +46,23 @@ class LdrController{
     float t_gain = 0.0;   // [Lux/PWM]
     float t_offset = 0.0; // [Lux]
 
+    float t_maxLux = -1.0;
+
     int t_pin;
     
   public:
-    LdrController();   // constructor
-    void setParametersPinMB(int pin, float m=-0.672, float b=log10(5E4) );
+    LdrController( int t_pin = 0 );   // constructor
+    void setGain(  );
     float voltageToLux( float v0 );
     float luxToPWM( float x, bool reverse=false );
-    void setPin();
     float getVoltage();
-    void printBrightness( float luxi, float luxf, long int time, float tau );
-    
+    float boundLUX( float lux );
+    void setGain( byte led_pin );
 
     TAU t_tau_up; // create Tau type
     TAU t_tau_down; // create Tau type
-};
+    
+}LDR;
 
 #endif 
 

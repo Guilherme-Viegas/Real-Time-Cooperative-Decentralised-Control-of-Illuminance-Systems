@@ -3,24 +3,30 @@
 
 // ----------------------------------------LdrController Class----------------------------------------
 
-LdrController::LdrController(){ Serial.println("You created a new LDR object!"); }
+LdrController::LdrController( int pin ){
+  Serial.println("You created a new LDR object!");
+  t_pin = pin;
+  }
 
 /*
  * Sets self parameters - Gain
  * 
- * @param pin localion of the ldr´
  * @param m static gain
  * @param b offset
  */
-void LdrController::setParametersPinMB( int pin, float m, float b ){
+void LdrController::setGain( byte led_pin ){
 
-  t_m = m; // computed value
-  t_b = b; // value for the resistor during the dark
-  t_pin = pin; // analag pin
+  t_m = -0.66; // computed value
+  t_b = log10(5E4); // value for the resistor during the dark
   
-  // compute_gain(t_m, t_pin, &t_gain, &t_offset);
-  t_gain = 1.0571;
-  t_offset = 0.0213;
+  compute_gain(t_m, t_pin, led_pin, &t_gain, &t_offset, &t_maxLux);
+  // t_gain = 0.1067;
+  // t_offset = 7.6622;
+  // t_maxLux = 35.26; //255*t_gain + t_offset;
+  /*small box values
+   * t_gain = 1.1678;
+   * t_offset = 0.0213;
+   */
 
 }
 
@@ -62,24 +68,18 @@ float LdrController::luxToPWM( float x, bool reverse ){
  */
 float LdrController::getVoltage(){ return analogRead(t_pin) * VCC/MAX_ANALOG; }
 
-
-/* 
- * Print the current brightness, it is considered that lux and v0 have a linear behaviour.
+/*
+ * Limit Lux gap
+ * 
+ * @param input Lux
+ * 
+ * @return Bounded lux
  */
-void LdrController::printBrightness( float luxi, float luxf, long int time, float tau ){
+float LdrController::boundLUX( float lux ){
 
-  luxi = luxToPWM(luxi, true);
-  luxf = luxToPWM(luxf, true);
-
-  float expoente = ( millis() - time ) / tau ;
-
-  float lux_out = luxf - (luxf - luxi )*exp( -expoente );
-
-  Serial.print( voltageToLux( getVoltage() ) );
-  Serial.print("\t");
-  Serial.println( lux_out );
-
-  
+    lux = lux < t_offset ? t_offset : lux;
+    lux = lux > t_maxLux ? t_maxLux : lux;
+    return lux;
 }
 
 

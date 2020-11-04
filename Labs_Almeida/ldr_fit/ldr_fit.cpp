@@ -7,7 +7,7 @@ volatile boolean flag_itr = false;
 
 float voltage_to_lux( float v0, float m, float b = log10(5E4)){
   
-  //ahahafloat b = log10(5E4); // value for the resistor during the dark
+  //float b = log10(5E4); // value for the resistor during the dark
 
   float function = (log10((VCC / v0) * R1 - R1) - b) / m; // relation between lux and voltage read
   
@@ -16,36 +16,41 @@ float voltage_to_lux( float v0, float m, float b = log10(5E4)){
   return lux;
 }
 
-void compute_gain( float m, short ldr_pin, float *gain, float *offset){ 
+void compute_gain( float m, short ldr_pin, byte led_pin, float *gain, float *offset, float *max_lux ){ 
 
   byte pwm = 0; // pwm to be written in led
   float flag = 1; // flag is 1 if the direction is up and 0 if it is down
   float lux = 0.0;  // lux computed 
   float voltageOut = 0.0; // voltage read in analog pin
 
-  byte cicle_times = 2; // number of times the mountain is done
+  byte cicle_times = 1; // number of times the mountain is done
   unsigned short cicles = cicle_times*510; // number of instants per mountain
   float b_mean = 0.0; // mean of b
   float m_mean = 0.0; // mean of m
   unsigned short len_without_b = cicles - 1; // total times pwm is not 0
-  
-  for(int i=0; i<cicles; i++){
 
-    analogWrite(LED_PWM, pwm); // sets the pwm 
-    delay(50);
+  Serial.print("Computing gain ...");
+
+  for(int i=0; i<cicles; i++){  // has to start in 0
+    
+    analogWrite(led_pin, pwm); // sets the pwm 
+    delay(100);
  
     voltageOut = analogRead(ldr_pin)*(VCC/MAX_ANALOG); // read V0
   
     lux = voltage_to_lux(voltageOut,m); // compute the lux
 
     if ( PRINT ){  // wites in Serial the data to compute tau in the python file
-      Serial.print(pwm);    
+      Serial.print(pwm);
       Serial.print('\t');
       Serial.println(lux);
     }
 
+    // gets lux boundaries (maxixum value, because the minimum value is the offset)
+    *max_lux = *max_lux > lux ? *max_lux : lux;
+
     if(pwm != 0){ // compute the gain in each instante
-      m_mean += lux/(float)pwm;
+      m_mean += (lux-b_mean*(i/510 +1))/(float)pwm; // subtract the offset
     }else{  // adaptation becasue this is an indetermination but, there is never complete dark in the environment
       b_mean += lux;
     }

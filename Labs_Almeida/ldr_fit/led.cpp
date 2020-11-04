@@ -8,38 +8,35 @@ Led::Led( byte pin ){
   Serial.println("You created a new LED object locate at pin" + String(t_pin) + "!");
 }
 
-/* 
+/*
  * Sets the brightness
- *  
+ *
  * @param PWM
+ * @param simulator
  */
-void Led::setBrightness( byte pwm ){
-  
+void Led::setBrightness( byte pwm, boolean reference ){
   analogWrite(t_pin, pwm);
-  t_initial_value_pwm = t_final_value_pwm;
-  t_final_value_pwm = pwm;
-}
+  if(reference) setFinalValuePwm(pwm);
+  }
 
 /*
  * @return initial value of pwm (just before step)
  */
-byte Led::getInitialValuePwm(){ return t_initial_value_pwm; }
+float Led::getInitialValuePwm(){ return t_initial_value_pwm; }
 
 /*
  * @return final value of pwm (steady state)
  */
-byte Led::getFinalValuePwm(){ return t_final_value_pwm; }
+float Led::getFinalValuePwm(){ return t_final_value_pwm; }
+
+/*
+ * @param value of pwm (steady state)
+ */
+void Led::setFinalValuePwm( float pwm ){ 
+  t_initial_value_pwm = t_final_value_pwm;
+  t_final_value_pwm = pwm;
+  }
+
 
 
 // ---------------------------------------------Auxiliar Functions---------------------------------------------
-
-/*
- * Reads Serial and convert to PWM 
- * 
- * @return PWM
- */
-byte get_pwm_serial(){
-
-  String work_percentage = Serial.readString();  // read input at PWM pin 'led_pin'
-  return ( work_percentage.toFloat() *(MAX_DIGITAL/MAX_LED) );
-}
