@@ -27,21 +27,24 @@ void Local_controller::init(int _led_pwm_port, int _ldr_analog, float _G, float 
 
 float Local_controller::compute_linear_gain() {
   float readVals[52] = {0};  //52 because is 255 / 5, so 52 samples //We get points in samples of 5pwm's
-  int read = -1;
+  int read_val = -1;
   float sum_slopes = 0;
+  
 
   for(int i=0; i <= 255; i+=5) { //Input PWM
       analogWrite(led_pwm_port, i);
       delay(50); //Wait for ldr to stabilize
-      read = analogRead(ldr_analog);
-      readVals[i/5] = voltageToLux(analogToVoltage(read), m, b); // m and b used from rect on datasheet (m=-0.9583, b=51920) //Now i'll use the calibrated m and b
+      read_val = analogRead(ldr_analog);
+      if(i==0) {
+        offset = voltageToLux(analogToVoltage(read_val), m, b);
+      }
+      readVals[i/5] = voltageToLux(analogToVoltage(read_val), m, b); // m and b used from rect on datasheet (m=-0.9583, b=51920) //Now i'll use the calibrated m and b
       if(i>0) {
         sum_slopes += (readVals[i/5] - readVals[(i/5)-1]) / 5.0;
       }
-      Serial.print(i);
-      Serial.print(' ');
-      Serial.println(readVals[i/5]);
   }
+  analogWrite(led_pwm_port, 0);
+  G = (sum_slopes / 51.0);
   return sum_slopes / 51.0;
 }
 
@@ -65,21 +68,22 @@ float Local_controller::tau_down_function(float lux) {
 //ti is the initial instant in micros, right before we enter a pwm (Arduino instant)
 //t is the instant we want to know
 //Because the function has (t - ti) we ca use the real arduino time at the moment of simulation or make ti=0s and t equals the time after the starting pulse
-float Local_controller::simulate(float input_lux, float current_lux, long ti, long t) {
+float Local_controller::simulate(float input_lux, float vi, long ti, long t) {
   float exp_expression = -1;
-  if(input_lux < current_lux) { //Means it's a step down (we're going from a bigger lux in the box to a lower one)
+  float vf = VCC * (R1 / ( R1 + compute_theoric_R2(input_lux) ) );
+  if(vf < vi) { //Means it's a step down (we're going from a bigger lux in the box to a lower one)
     exp_expression = exp(-(t - ti) / tau_down_function(input_lux));
   } else { //Means it's a step up
     exp_expression = exp(-(t - ti) / tau_up_function(input_lux));
   }
 
-  return (input_lux - (input_lux - current_lux) * exp_expression);
+  return (vf - (vf - vi) * exp_expression);
 }
 
 //Value of R2 depends on the LUX x, which is G*u(t), or G*PWM
 //Returns R2 in Ohms (e.i 13000ohm)
-float Local_controller::compute_theoric_R2(float inputPwm) {
-  float function = m*(log10( inputPwm * G )) + log10(b);
+float Local_controller::compute_theoric_R2(float input_lux) {
+  float function = m*(log10( input_lux )) + log10(b);
   return pow(10, function);
 }
 

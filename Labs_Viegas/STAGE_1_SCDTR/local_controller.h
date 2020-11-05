@@ -7,6 +7,7 @@ class Local_controller {
     byte ldr_analog;
 
     float G;
+    float offset;
   
     float m;
     float b;
@@ -19,6 +20,7 @@ class Local_controller {
     float tau_c_down;
 
     float dead_time;
+
    
   public:
     void init(int, int, float, float, float, float, float, float, float, float, float, float);
@@ -38,6 +40,7 @@ class Local_controller {
     byte get_ldr_port();
     float getM();
     float getB();
+
 
     //Setters
     void setG(float);
