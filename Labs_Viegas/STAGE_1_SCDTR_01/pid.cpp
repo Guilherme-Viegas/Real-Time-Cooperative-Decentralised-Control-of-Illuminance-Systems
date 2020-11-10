@@ -9,7 +9,7 @@ Pid::Pid(float _T, float _p, float _i, float _d) {
   Ki = _i;
   Kd = _d;
   
-  K1 = Ki * (T);
+  K1 = Ki * (T / 2);
   if(_d != 0) {
     K2 = Kd/(Kd + T);
   }
@@ -26,15 +26,14 @@ float Pid::dead_zone(float _error) {
   }
 }
 
-float Pid::compute_pid(float y, float y_ref, float u_ff) {
-  float error = y_ref - y ;
+float Pid::compute_pid(float y, float y_ref) {
+  float error = dead_zone( y_ref - y );
   float p = Kp * error;
   float i = integral_previous + K1 * (error + error_previous);
   float d = 0;
   if(Kd != 0) {
     d = K2 * (derivative_previous - (y_ref - y_previous));
   }
-  float integral_limit = VCC - (i + d + u_ff);
 
   //Update the previous values...
   y_previous = y;
@@ -42,14 +41,10 @@ float Pid::compute_pid(float y, float y_ref, float u_ff) {
   derivative_previous = d;
   error_previous = error;
 
-  if(abs( i ) > integral_limit) {
-    i = i < 0 ? -integral_limit : integral_limit;
-    integral_previous = i;
+  if(is_saturated) { //If u computed is bigger than 255 or less than 0 we reset the integral term ( There was the option of Integral Saturation instead of just resetting due to discontinuities )
+    i = 0;
+    integral_previous = 0;
   }
-  
-  /*Serial.print(p);
-  Serial.print(" ");
-  Serial.println(i);*/
   
   return p+i+d;
 }
@@ -72,6 +67,10 @@ float Pid::get_Kp() {
 }
 
 //Setters
+
+void Pid::set_is_saturated(bool flag) {
+  is_saturated = flag;
+}
 
 void Pid::setT(float _T) {
   T = _T;

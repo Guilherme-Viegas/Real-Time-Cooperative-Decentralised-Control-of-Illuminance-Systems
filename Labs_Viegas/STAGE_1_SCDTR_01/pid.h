@@ -7,6 +7,8 @@ class Pid {
    float Kd = 0;
    float Kp = 0;
 
+   bool is_saturated = false;
+
    float T;
 
    float error_previous = 0;
@@ -18,11 +20,11 @@ class Pid {
    
   public:
     void init(float, float, float, bool);
-    float compute_pid(float, float, float);
+    float compute_pid(float, float);
     void zero_ui(bool);
     float dead_zone(float);
 
-    Pid(float, float=0, float=0, float=0);
+    Pid(float, float=1.0, float=0.2, float=0);
 
     //Getters
     float getT();
@@ -31,6 +33,7 @@ class Pid {
     float get_Kp();
 
     //Setters
+    void set_is_saturated(bool);
     void setT(float);
     void set_Ki(float);
     void set_Kd(float);

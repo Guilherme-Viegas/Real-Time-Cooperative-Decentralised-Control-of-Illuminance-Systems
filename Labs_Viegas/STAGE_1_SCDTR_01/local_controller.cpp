@@ -35,12 +35,10 @@ float Local_controller::compute_linear_gain() {
       analogWrite(led_pwm_port, i);
       delay(50); //Wait for ldr to stabilize
       read_val = analogRead(ldr_analog);
-      //Serial.print(" ");
       if(i==0) {
         offset = voltageToLux(analogToVoltage(read_val), m, b);
       }
-      readVals[i/5] = voltageToLux(analogToVoltage(read_val), m, b);
-      Serial.println(readVals[i/5]);
+      readVals[i/5] = voltageToLux(analogToVoltage(read_val), m, b); // m and b used from rect on datasheet (m=-0.9583, b=51920) //Now i'll use the calibrated m and b
       if(i>0) {
         sum_slopes += (readVals[i/5] - readVals[(i/5)-1]) / 5.0;
       }
@@ -100,10 +98,6 @@ byte Local_controller::get_ldr_port() {
 
 float Local_controller::getG() {
   return G;
-}
-
-float Local_controller::getOffset() {
-  return offset;
 }
 
 float Local_controller::getM() {

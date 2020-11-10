@@ -6,7 +6,7 @@ from sklearn.linear_model import LinearRegression
 import math
 from scipy.optimize import curve_fit
 
-filename = 'tau_up.txt'
+filename = 'tau_down.txt'
 
 #Change filename according to data used
 #If data is for step up, uncomment step up code down below, if for step down, uncomment step down code, and comment step up
@@ -144,7 +144,7 @@ plt.show()
 #************
 
 #********* For Stepping Down ********
-'''
+
 
 #lag = get_lag(x, y)
 
@@ -175,16 +175,13 @@ print("y = ", popt[0], "*e^(", popt[1], "x) + ", popt[2])
 
 plt.show()
 
-'''
-#********* For the Delay Function ************
 
+#********* For the Dealy Function ************
+'''
 lag = get_lag(x, y)
 print(lag)
 
 X = np.linspace(5, 255, 51)
-
-print("\n")
-print(sum(lag) / len(lag))  #We got for our values 369.09 micro seconds
 
 plt.figure()
 plt.plot(X, lag, '+')
@@ -197,3 +194,6 @@ plt.show()
 
 #If delay function is not dependent on input, then is a constant, so we average lag
 
+print(sum(lag) / len(lag))  #We got for our values 369.09 micro seconds
+
+'''

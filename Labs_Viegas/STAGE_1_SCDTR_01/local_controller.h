@@ -36,7 +36,6 @@ class Local_controller {
 
     //Getters
     float getG();
-    float getOffset();
     byte get_led_port();
     byte get_ldr_port();
     float getM();

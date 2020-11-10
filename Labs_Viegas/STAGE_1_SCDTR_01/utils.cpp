@@ -6,12 +6,15 @@
 #include <Arduino.h>
 #include "utils.h"
 
-int bounds(int _input_pwm) {
+int bounds(int _input_pwm, Pid _pid) {
   if(_input_pwm > 255) {
+    _pid.set_is_saturated(true);
     return 255;
   }else if(_input_pwm < 0) {
+    _pid.set_is_saturated(true);
     return 0;
   } else {
+    _pid.set_is_saturated(false);
     return _input_pwm;
   }
 }

@@ -6,7 +6,7 @@
 #define C1 0.000001
 #define R1 10000 
 
-int bounds(int);
+int bounds(int, Pid);
 
 float compute_theoric_Req(float);
 float compute_theoric_tau(float);
