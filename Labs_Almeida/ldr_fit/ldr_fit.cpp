@@ -5,7 +5,7 @@
 volatile unsigned short analog_value;
 volatile boolean flag_itr = false;
 
-float voltage_to_lux( float v0, float m, float b = log10(5E4)){
+float voltage_to_lux( float v0, float m, float b = log10(1E5)){
   
   //float b = log10(5E4); // value for the resistor during the dark
 
@@ -14,64 +14,6 @@ float voltage_to_lux( float v0, float m, float b = log10(5E4)){
   float lux = pow(10, function);  // log scale
   
   return lux;
-}
-
-void compute_gain( float m, short ldr_pin, byte led_pin, float *gain, float *offset, float *max_lux ){ 
-
-  byte pwm = 0; // pwm to be written in led
-  float flag = 1; // flag is 1 if the direction is up and 0 if it is down
-  float lux = 0.0;  // lux computed 
-  float voltageOut = 0.0; // voltage read in analog pin
-
-  byte cicle_times = 1; // number of times the mountain is done
-  unsigned short cicles = cicle_times*510; // number of instants per mountain
-  float b_mean = 0.0; // mean of b
-  float m_mean = 0.0; // mean of m
-  unsigned short len_without_b = cicles - 1; // total times pwm is not 0
-
-  Serial.print("Computing gain ...");
-
-  for(int i=0; i<cicles; i++){  // has to start in 0
-    
-    analogWrite(led_pin, pwm); // sets the pwm 
-    delay(100);
- 
-    voltageOut = analogRead(ldr_pin)*(VCC/MAX_ANALOG); // read V0
-  
-    lux = voltage_to_lux(voltageOut,m); // compute the lux
-
-    if ( PRINT ){  // wites in Serial the data to compute tau in the python file
-      Serial.print(pwm);
-      Serial.print('\t');
-      Serial.println(lux);
-    }
-
-    // gets lux boundaries (maxixum value, because the minimum value is the offset)
-    *max_lux = *max_lux > lux ? *max_lux : lux;
-
-    if(pwm != 0){ // compute the gain in each instante
-      m_mean += (lux-b_mean*(i/510 +1))/(float)pwm; // subtract the offset
-    }else{  // adaptation becasue this is an indetermination but, there is never complete dark in the environment
-      b_mean += lux;
-    }
-    
-    // detect if the is reached the top or the bottom
-    if(pwm == 255){ flag = -1; }  
-    else if(pwm == 0){ flag = 1; }
-
-    pwm += flag;  // update pwm value
-    
-   }
-  
-  // 'relax' the light in the box
-  analogWrite(LED_PWM, 0); 
-  delay(200);
-
-  *offset = b_mean/cicle_times;     // offset to compensate unpleasent light in the dark
-  *gain = m_mean/len_without_b;  // gain (G): x(t) = G*u(t)
-
-  Serial.println("Gain and offset is: Lux = " + String(*gain, 4) + " * PWM + " + String(*offset, 4));
-  
 }
 
 void steps_up( float m ){
@@ -90,7 +32,7 @@ void steps_up( float m ){
   
   // does the step up with a split pulse (pwm = 0) : pwm = {0, 1, 0, 2, ..., 0, 254, 0, 255}  
   for(byte pwm = 1; pwm != 0; pwm++){
-
+    
     // defines the theorical responses for each step
     analogWrite(LED_PWM, pwm);
     delay(500);
@@ -100,7 +42,7 @@ void steps_up( float m ){
     // resets the light to 0 in order to compute the step up response
     analogWrite(LED_PWM, 0);
     while(analogRead(LDR_ANALOG) != 0){delay(10);} // wait until there is no light
-
+    
     // starting values 
     b=0;
     voltageOut[b] = 0;
@@ -173,7 +115,7 @@ void steps_down( float m ){
     delay(500);
     step_response = analogRead(LDR_ANALOG);
     treeshold = max_brightness - 0.63*(max_brightness - step_response);
-
+    
     // resets the light to 255 in order to compute the step down response
     analogWrite(LED_PWM, 255);
     while(analogRead(LDR_ANALOG) < max_brightness){delay(10);} // wait until the brightness is in the max level

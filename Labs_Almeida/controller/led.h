@@ -1,7 +1,7 @@
 #ifndef LED_H
 #define LED
 
-#include "Arduino.h"
+#include "util.h"
 
 typedef class Led{
   
@@ -13,10 +13,7 @@ typedef class Led{
   public:
     Led( byte pin );   // constructor
     
-    void setBrightness( byte pwm, boolean reference = false );
-    float getInitialValuePwm();
-    float getFinalValuePwm();
-    void setFinalValuePwm( float pwm );
+    void setBrightness( float v );
     
 }LED_;
 

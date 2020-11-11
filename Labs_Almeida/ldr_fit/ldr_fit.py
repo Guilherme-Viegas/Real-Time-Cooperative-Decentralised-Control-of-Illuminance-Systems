@@ -106,7 +106,7 @@ def exp(x, a, b, c):
 
 best = []
 if MULTIPLE:
-    xx,yy = load_variables('text_files/multiples2.txt')
+    xx,yy = load_variables('text_files/multiples.txt')
     for i in range(len(yy)):    # for each trial
         x=xx[i]
         y=yy[i]
@@ -172,7 +172,7 @@ if STEP_RESPONSE:
 
     for type in steps:
     
-        time, lux, lux_tau = load_response(f"text_files/{type}_step_reponse2.txt")
+        time, lux, lux_tau = load_response(f"text_files/{type}_step_reponse.txt")
 
         beta = []
         tau = []
