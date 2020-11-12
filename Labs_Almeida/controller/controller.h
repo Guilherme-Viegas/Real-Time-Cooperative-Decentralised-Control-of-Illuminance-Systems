@@ -21,6 +21,8 @@ class ControllerPid{
     // flags
     boolean t_deadZone = true; // silent the error when it is small
     boolean t_antiWindUp = true; // prevent integral windup
+    boolean t_feedfoward = true;  // feedfoward 
+    boolean t_feedback = true;  // feedback
     
     float t_reference=0; // lux reference
     float t_lastReference=0; // last reference of lux
@@ -41,7 +43,7 @@ class ControllerPid{
     LDR ldr = t_ldrPin;
     LED_ led = t_ledPin;
 
-    void setReferenceLux( float reference );
+    void setReferencePWM( float reference );
     void setLastReferenceLux( float reference );
     void setUff( float uff );
     float getU();
@@ -51,6 +53,7 @@ class ControllerPid{
     byte getLedPin();
     float simulator(boolean print);
     void output();
+    boolean has_feedback(){ return t_feedback; }
 
 };
 

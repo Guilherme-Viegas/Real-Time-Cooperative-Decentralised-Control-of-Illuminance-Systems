@@ -64,15 +64,17 @@ void ControllerPid::computeFeedbackGain( float output ){
  *
  * @param reference desire illumination
  */
-void ControllerPid::setReferenceLux( float reference ){
+void ControllerPid::setReferencePWM( float reference ){
   noInterrupts();
+
+  float pwm = boundPWM( reference );
+  setUff( pwm ); // sets feedfoward signal
+
+  reference = ldr.luxToPWM( reference, true );  // converts to lux
   
   t_lastReference = t_reference;  // updates reference
   t_reference = ldr.boundLUX( reference ); // Normalize reference regarding external possibilities [Lux]
   t_integralReset = true; // reset integral error
-
-  float pwm = boundPWM( ldr.luxToPWM( t_reference ) );
-  setUff( pwm ); // sets feedfoward signal
 
   interrupts();
 }
@@ -88,7 +90,8 @@ void ControllerPid::setLastReferenceLux( float reference ){ t_lastReference = ld
  *Sets feedfowward signal Volt
  */
 void ControllerPid::setUff( float uff ){
-    t_uff = uff * VCC/MAX_DIGITAL; // feedfoward impulse
+  
+    t_uff = t_feedfoward ? uff * VCC/MAX_DIGITAL : ldr.get_offset(); // feedfoward impulse
     t_to = millis();
 }
 

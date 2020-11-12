@@ -1,7 +1,5 @@
 #include "controller.h"
 
-#include "TimerOne.h"
-
 // Global variables to be declared in both setup() and loop()
 
 // INIT PID
@@ -18,7 +16,7 @@ void setup() {
   Serial.begin(2000000);
   delay(500);
   pid.ldr.setGain(  pid.getLedPin() );  // define the pin, m and b are predefine. Compute gain
-  pid.setReferenceLux( 0 ); // sets the minimum value in the led ( zero instant )
+  pid.setReferencePWM( 0 ); // sets the minimum value in the led ( zero instant )
   pid.ldr.t_tau_up.setParametersABC( 29.207246, -0.024485, 11.085226); // values computed in the python file
   pid.ldr.t_tau_down.setParametersABC( 15.402250,  -0.015674, 8.313158); // values computed in the python file
   
@@ -31,8 +29,8 @@ void setup() {
   Serial.println("Set up completed");
   
 
-  pid.setReferenceLux( 10 ); // reference lux value is bounded with the capabilities of the arduino
-  initInterrupt1();
+  pid.setReferencePWM( 10 ); // reference lux value is bounded with the capabilities of the arduino
+  if(pid.has_feedback()){initInterrupt1();}
   
 }
 
@@ -43,7 +41,7 @@ void loop() {
   
     if ( Serial.available() ){
       String work_percentage = Serial.readString();  // read input at PWM pin 'led_pin'
-      pid.setReferenceLux( work_percentage.toFloat() ); // read input value and ajust the reference brightness
+      pid.setReferencePWM( work_percentage.toFloat() ); // read input value and ajust the reference brightness
       pid.computeFeedbackGain( analogRead( pid.getLdrPin() ) );
     }  // anytime there is an input
     
@@ -57,26 +55,8 @@ void loop() {
   }                                   
 }
 
-void initInterrupt1(){
-  noInterrupts();           // disable all interrupts
-  TCCR1A = 0;
-  TCCR1B = 0;
-  // OCR1A = [16, 000, 000Hz / (prescaler * desired interrupt frequency)] - 1
-  // OCR1A = [16M / (64 * 100)] - 1; 100Hz
-  TCNT1 = 0;   // preload timer
-  OCR1A = 2499;
-  TCCR1B = 0;
-  TCCR1B |= (1 << WGM12);
-  TCCR1B &= ~(1 << CS12);    // 64 prescaler 
-  TCCR1B |= (1 << CS10);
-  TCCR1B |= (1 << CS11);
- 
-  TIMSK1 |= (1 << OCIE1A);   // enable timer overflow interrupt
-  interrupts();          // enable all interrupts
-  
-}
-
-ISR(TIMER1_COMPA_vect)        // interrupt service routine 
+// interrupt service routine 
+ISR(TIMER1_COMPA_vect)        
 { 
   pid.computeFeedbackGain( analogRead( pid.getLdrPin() ) );
   // Serial.println( millis() );

@@ -10,5 +10,7 @@
 #define R1 1E4  // Resistor
 
 float boundPWM(float u);
+void initInterrupt1();
+ISR(TIMER1_COMPA_vect);
 
 #endif
