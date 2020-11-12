@@ -12,7 +12,7 @@ STEP_RESPONSE = True
 
 
 # load variables from files and check their dimensions
-def load_variables(name_file_x: str) -> (np.array,np.array):
+def load_variables(name_file_x: str, multiple: bool) -> (np.array,np.array):
 
     # load files
     f = codecs.open(name_file_x, "r", "utf-16")
@@ -39,7 +39,7 @@ def load_variables(name_file_x: str) -> (np.array,np.array):
         PWM_aux.append(s[1])
 
 
-    return (lux,PWM) if MULTIPLE else (np.array(lux_aux, dtype=np.float64),np.array(PWM_aux, dtype=np.float64))
+    return (lux,PWM) if multiple else (np.array(lux_aux, dtype=np.float64),np.array(PWM_aux, dtype=np.float64))
 
 def mean_vect(x,y):
     a = []
@@ -106,9 +106,9 @@ def exp(x, a, b, c):
 
 best = []
 if MULTIPLE:
-    suf = ''    # sufix: ('', 1)
-    xx,yy = load_variables(f'text_files/multiples{suf}.txt')
-    func = lambda x : -0.71-0.001*x if suf='' else -0.6-0.1*x
+    suf = '' # sufixe
+    xx,yy = load_variables(f'text_files/multiples{suf}.txt', True)
+    func = lambda x: -0.71 - 0.001*x if suf == '' else -0.6 - 0.01*x
     for i in range(len(yy)):    # for each trial
         x=xx[i]
         y=yy[i]
@@ -117,16 +117,21 @@ if MULTIPLE:
         declive = (lux[-1]-lux[0])/255
         Y = np.linspace(lux[0],lux[-1],256).reshape(-1, 1)
 
-        plt.figure()
-        plt.plot(lux,lw=2)
-        plt.plot(Y, ls='--', color='red')
-        plt.draw()
         best.append(computeSSE(lux,Y))
         print(f'SSE: {best[-1]}')   # new (last) trial
 
+        plt.figure()
+        plt.title(f'm = {func(i) :.3f}   -->   SSE: {best[-1][0][0] :.3f}')
+        plt.plot(lux,lw=2)
+        plt.plot(Y, ls='--', color='red')
+        plt.draw()
+        plt.xlabel('PWM')
+        plt.ylabel('Lux')
+        
+
 if CALIBRATED:
 
-    x,y = load_variables('text_files/calibrated.txt')
+    x,y = load_variables('text_files/calibrated.txt', False)
     lux = np.array(mean_vect(x,y)).reshape(-1, 1)
 
     X = np.linspace(0,255,256).reshape(-1, 1)
@@ -144,6 +149,8 @@ if CALIBRATED:
     plt.plot(lux,lw=2)
     plt.plot((0,255),(lux[0],lux[-1]), ls='--', color='red', lw=0.5)
     plt.legend([f'Gaind: {beta[0][0]: .4f} [Lux/PWM]', 'Linear approx'])
+    plt.xlabel('PWM')
+    plt.ylabel('Lux')
     plt.draw()
 
     if CALC_TAU_TEORICO:
@@ -232,7 +239,7 @@ if STEP_RESPONSE:
         print('tau_{}: y = {:.6f} e^( {:.6f} lux) + {:.6f}'.format(type, *coef_tau))
 
 
-        plt.figure(10 + steps.index(type))
+        plt.figure()
         plt.title(f"Tau according to PWM during {type} step")
         plt.plot(pwm_array, tau, marker='+', ls='-')
         plt.plot(pwm_array, exp(pwm_array, *coef_tau), 'r')
