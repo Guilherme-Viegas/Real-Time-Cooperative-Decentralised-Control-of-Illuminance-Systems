@@ -2,8 +2,9 @@
 
 ## Author: [João Tiago Almeida](https://github.com/Joao-Tiago-Almeida)
 ## ist id: 90119
+## Group: 1
 
-### 12 November 2020
+### November 2020
 
 This part was separated in two folders:
 1. [Controller](https://github.com/Guilherme-Viegas/SCTDR/tree/master/Labs_Almeida/controller) contains the part of the PID controller and its [README](https://github.com/Guilherme-Viegas/SCTDR/tree/master/Labs_Almeida/controller/README.md).
