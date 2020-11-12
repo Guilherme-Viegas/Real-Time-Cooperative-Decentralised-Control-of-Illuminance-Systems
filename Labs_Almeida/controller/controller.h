@@ -44,7 +44,6 @@ class ControllerPid{
     LED_ led = t_ledPin;
 
     void setReferencePWM( float reference );
-    void setLastReferenceLux( float reference );
     void setUff( float uff );
     float getU();
     unsigned long get_to();

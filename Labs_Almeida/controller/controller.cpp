@@ -73,18 +73,12 @@ void ControllerPid::setReferencePWM( float reference ){
   reference = ldr.luxToPWM( reference, true );  // converts to lux
   
   t_lastReference = t_reference;  // updates reference
-  t_reference = ldr.boundLUX( reference ); // Normalize reference regarding external possibilities [Lux]
+  t_reference = reference; // set reference  [Lux]
   t_integralReset = true; // reset integral error
 
   interrupts();
 }
 
-/*
- * Sets Reference lux level
- *
- * @param reference desire illumination
- */
-void ControllerPid::setLastReferenceLux( float reference ){ t_lastReference = ldr.boundLUX( reference ); }
 
 /*
  *Sets feedfowward signal Volt
