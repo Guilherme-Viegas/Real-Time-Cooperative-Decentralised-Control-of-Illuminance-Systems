@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import codecs
 from scipy.optimize import curve_fit
 
-MULTIPLE = False
-CALIBRATED = False
+MULTIPLE = True
+CALIBRATED = True
 CALC_TAU_TEORICO = False
 IMAGE = True
 STEP_RESPONSE = True
@@ -106,7 +106,9 @@ def exp(x, a, b, c):
 
 best = []
 if MULTIPLE:
-    xx,yy = load_variables('text_files/multiples.txt')
+    suf = ''    # sufix: ('', 1)
+    xx,yy = load_variables(f'text_files/multiples{suf}.txt')
+    func = lambda x : -0.71-0.001*x if suf='' else -0.6-0.1*x
     for i in range(len(yy)):    # for each trial
         x=xx[i]
         y=yy[i]
