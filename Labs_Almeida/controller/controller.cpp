@@ -70,7 +70,7 @@ void ControllerPid::setReferencePWM( float reference ){
   float pwm = boundPWM( reference );
   setUff( pwm ); // sets feedfoward signal
 
-  reference = ldr.luxToPWM( reference, true );  // converts to lux
+  reference = ldr.boundLUX( ldr.luxToPWM( reference, true ) );  // converts to lux
   
   t_lastReference = t_reference;  // updates reference
   t_reference = reference; // set reference  [Lux]
