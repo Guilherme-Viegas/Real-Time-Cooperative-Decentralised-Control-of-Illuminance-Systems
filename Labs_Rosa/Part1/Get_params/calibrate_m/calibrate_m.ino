@@ -18,11 +18,8 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   if(Serial.available()==1){
-    //getMatrix();
+    getMatrix();
     analogWrite(LED_PWM, 0); //turns off the LED
-    delay(100);
-    Serial.println(analogRead(A0)*VCC/MAX_ANALOG);
-    Serial.println((analogRead(A0)*VCC/MAX_ANALOG)*MAX_DIGITAL/VCC);
   }
   
 }

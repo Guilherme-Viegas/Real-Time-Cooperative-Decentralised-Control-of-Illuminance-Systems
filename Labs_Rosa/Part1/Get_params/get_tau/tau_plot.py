@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
 UP = True
-DOWN = False
-TEO = False
 
 def exp(x, a, b, c):
     return a * np.exp(b * x) + c
@@ -105,7 +103,7 @@ def createArrayTauDown(analog, time_arr):
     return tau
 
 if UP:
-    analog,time_arr,pwm = load_variables("new_tau.txt")
+    analog,time_arr,pwm = load_variables("new_b.txt")
     tau = createArrayTau(analog, time_arr)
     tau = tau[1:]
     pwm = pwm[1:]
@@ -122,59 +120,3 @@ if UP:
     plt.ylabel('Tau(micro s)')
     plt.show()
 
-if DOWN:
-    analog,time_arr,pwm = load_variables("visao_down.txt")
-    tau = createArrayTauDown(analog, time_arr)
-    
-    
-    
-    pwm = np.array(pwm[3:])
-    tau = np.array(tau[2:])
-    
-    '''
-    tau1 = tau[2:4]
-    pwm1 = pwm[2:4]
-    pwm2 = pwm[5:]
-    tau2 = tau[5:]
-    tau = np.concatenate((tau1, tau2))
-    pwm = np.concatenate((pwm1, pwm2))
-    '''
-    coef_tau, _ = curve_fit(exp, pwm, tau, bounds=([0, -np.inf, 0],[np.inf, 0, np.inf]))
-    print('tau_{}: y = {} e^( {} x) + {}'.format(type, *coef_tau))
-    
-    
-    plt.figure()
-    plt.plot(pwm,tau, '+')
-    plt.plot(pwm, exp(pwm, *coef_tau), 'r')
-    plt.xlabel('PWM/5')
-    plt.ylabel('Tau(micro s)')
-    plt.show()
-
-if TEO:
-    f = codecs.open("tau_lindo.txt", "r", "utf-8")
-
-    temp = f.read() # read file
-    temp = temp.rsplit('\r\n')
-    
-    pwm = []
-    tau_teo = []
-    for line in temp:
-        s = line.rsplit('\t')
-        pwm.append(s[0])
-        tau_teo.append(s[1])
-    
-    pwm = np.array(pwm, dtype=np.float64);
-    tau_teo = np.array(tau_teo, dtype=np.float64);
-
-    coef_tau, _ = curve_fit(exp, pwm, tau_teo, bounds=([0, -np.inf, 0],[np.inf, 0, np.inf]))
-
-    print('tau_{}: y = {} e^( {} x) + {}'.format(type, *coef_tau))
-    
-    
-    #plt.figure()
-    #plt.plot(pwm,tau_teo, '+')
-    plt.plot(pwm, exp(pwm, *coef_tau), 'b')
-    #plt.xlabel('PWM')
-    #plt.ylabel('Tau(micro s)')
-    plt.title('Tau Teorico')
-    plt.show()

@@ -57,7 +57,7 @@ def computeSSE(y: np.array, fit: np.array) -> np.array:
 
     return sse
 
-filename='calibrate_steps.txt'
+filename='new_b.txt'
 
 best = []
 if MULTIPLE:
