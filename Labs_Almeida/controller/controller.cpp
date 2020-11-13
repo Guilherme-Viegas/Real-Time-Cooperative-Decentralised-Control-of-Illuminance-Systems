@@ -11,8 +11,9 @@
  */
 ControllerPid::ControllerPid( byte led, int ldr ){
   // Serial.println("You created a new PID controller object!");
-  t_kp = 0.75;
-  t_ki = 0.025;
+  // NICE VALUES: kp = 0.75; ki = 0.025;
+  t_kp = 0.70;
+  t_ki = 0.030;
 
   // LED and LDR pins
   t_ldrPin = ldr;
@@ -64,17 +65,18 @@ void ControllerPid::computeFeedbackGain( float output ){
  *
  * @param reference desire illumination
  */
-void ControllerPid::setReferencePWM( float reference ){
+void ControllerPid::setReferenceLux( float reference ){
   noInterrupts();
 
-  float pwm = boundPWM( reference );
-  setUff( pwm ); // sets feedfoward signal
+  reference = ldr.boundLUX( reference );  // bound lux value
 
-  reference = ldr.boundLUX( ldr.luxToPWM( reference, true ) );  // converts to lux
-  
   t_lastReference = t_reference;  // updates reference
   t_reference = reference; // set reference  [Lux]
   t_integralReset = true; // reset integral error
+
+  float pwm = boundPWM( ldr.luxToPWM( t_reference ) );  // converts to PWM
+
+  setUff( pwm ); // sets feedfoward signal
 
   interrupts();
 }
@@ -97,10 +99,10 @@ void ControllerPid::setUff( float uff ){
 unsigned long ControllerPid::get_to(){ return t_to; }
 
 /*
- * Return system response Volt
+ * Return system response PWM
  */
 float ControllerPid::getU(){  
-    float u = t_ufb + t_uff;
+    float u = t_ufb + t_uff;  // compute u
     return round( boundPWM(u * MAX_DIGITAL/VCC) ) ;
 }
 
@@ -142,31 +144,29 @@ float ControllerPid::simulator( boolean print ){
   if(print){
     // Reference
     Serial.print( t_reference );  // Voltlux
-    // Serial.print( ldr.luxToOutputVoltage(t_reference) *204.6 ); // PWM
     Serial.print("\t");
 
     // simulator
     Serial.print( ldr.luxToOutputVoltage( lux_out, true ) );  // LUX
-    // Serial.print( lux_out * 204.6 );  // PWM
     Serial.print("\t");
 
     // led 
-    Serial.print( ldr.luxToPWM( getU() , true ) );  // LUX
-    // Serial.print( getU() * MAX_ANALOG/MAX_DIGITAL );  // PWM
-    Serial.print("\t"); 
+    // Serial.print( ldr.luxToPWM( getU() , true ) );  // LUX
+    // Serial.print("\t"); 
   }
   
   return lux_out ;  // simulator value in Volt
 }
 
-
+/*
+ * Print the system response
+ */
 void ControllerPid::output(){
 
-  t_sum -= t_output[t_counter%MEAN_SIZE]; // remove the last value
-  t_output[t_counter%MEAN_SIZE] = ldr.luxToOutputVoltage( ldr.getOutputVoltage(), true ); // read the new value
-  t_sum += t_output[t_counter%MEAN_SIZE]; // compute the sum
+  t_sum -= t_output[t_counter%t_meanSize]; // remove the last value
+  t_output[t_counter%t_meanSize] = ldr.luxToOutputVoltage( ldr.getOutputVoltage(), true ); // read the new value
+  t_sum += t_output[t_counter%t_meanSize]; // compute the sum
   t_counter ++; // updates new value
   
-  Serial.println( t_sum/MEAN_SIZE ); // LUX
-  // Serial.println( ldr.getOutputVoltage() * 204.6 ); // PWM
+  Serial.println( t_sum/t_meanSize ); // LUX
 }

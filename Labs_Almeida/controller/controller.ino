@@ -16,7 +16,6 @@ void setup() {
   Serial.begin(2000000);
   delay(500);
   pid.ldr.setGain(  pid.getLedPin() );  // define the pin, m and b are predefine. Compute gain
-  pid.setReferencePWM( 0 ); // sets the minimum value in the led ( zero instant )
   pid.ldr.t_tau_up.setParametersABC( 29.207246, -0.024485, 11.085226); // values computed in the python file
   pid.ldr.t_tau_down.setParametersABC( 15.402250,  -0.015674, 8.313158); // values computed in the python file
   
@@ -28,8 +27,8 @@ void setup() {
   
   Serial.println("Set up completed");
   
-
-  pid.setReferencePWM( 10 ); // reference lux value is bounded with the capabilities of the arduino
+  
+  pid.setReferenceLux( 30 ); // sets the minimum value in the led ( zero instant )
   if(pid.has_feedback()){initInterrupt1();}
   
 }
@@ -41,7 +40,7 @@ void loop() {
   
     if ( Serial.available() ){
       String work_percentage = Serial.readString();  // read input at PWM pin 'led_pin'
-      pid.setReferencePWM( work_percentage.toFloat() ); // read input value and ajust the reference brightness
+      pid.setReferenceLux( work_percentage.toFloat() ); // read input value and ajust the reference brightness
       pid.computeFeedbackGain( analogRead( pid.getLdrPin() ) );
     }  // anytime there is an input
     

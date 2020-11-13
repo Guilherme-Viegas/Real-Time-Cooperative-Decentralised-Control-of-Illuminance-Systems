@@ -21,16 +21,10 @@ void LdrController::setGain( byte led_pin, float m ){
   t_bb = log10(1E5); // value for the resistor during the dark
 
   compute_gain( led_pin );
-  // t_gain = 0.3356;
+  // t_gain = 0.2930;
   // t_offset = 0;
-  // t_maxLux = 95.49;
+  // t_maxLux = 75.30;
   //255*t_gain + t_offset;
-  /*small box values
-   * t_gain = 1.1678;
-   * t_offset = 0.0213;
-   */
-   //Serial.println(t_maxLux);
-   //Serial.println(t_gain * 255 + t_offset);
 
 }
 
@@ -67,7 +61,7 @@ void LdrController::compute_gain( byte led_pin ){
       Serial.print('\t');
       Serial.println(lux);
     }
-
+    
     // gets lux boundaries (maxixum value, because the minimum value is the offset)
     t_maxLux = t_maxLux > lux ? t_maxLux : lux;
 

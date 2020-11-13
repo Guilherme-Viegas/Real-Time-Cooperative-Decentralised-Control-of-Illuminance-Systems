@@ -7,8 +7,6 @@
 #include "Arduino.h"
 #include <EEPROM.h> // https://www.arduino.cc/en/Tutorial/LibraryExamples/EEPROMWrite
 
-#define MEAN_SIZE 10
-
 class ControllerPid{
 
   private:
@@ -33,7 +31,8 @@ class ControllerPid{
     byte t_ledPin = 0; // led pin
     int t_ldrPin = 0; // ldr pin
 
-    float t_output[MEAN_SIZE] = { }; // [ N-1 ] - stores N ouput values
+    static const short t_meanSize = 10; // N last output saves
+    float t_output[t_meanSize] = { }; // [ N-1 ] - stores N ouput values
     float t_sum = 0; //  The sum in the last position
     unsigned short t_counter = 0; // output counter
 
@@ -43,7 +42,7 @@ class ControllerPid{
     LDR ldr = t_ldrPin;
     LED_ led = t_ledPin;
 
-    void setReferencePWM( float reference );
+    void setReferenceLux( float reference );
     void setUff( float uff );
     float getU();
     unsigned long get_to();
