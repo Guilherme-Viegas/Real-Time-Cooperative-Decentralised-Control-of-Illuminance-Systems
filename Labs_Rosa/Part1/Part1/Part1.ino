@@ -90,12 +90,12 @@ void loop() {
       else if(strcmp(strings[0], "occupied") == 0){
         Serial.println("Occupied");
         simulator.computeGain();
-        feedBack(50, 1, 1);
+        feedBack(80, 1, 1);
       }
       else if(strcmp(strings[0], "unoccupied") == 0){
         Serial.println("Unoccupied");
         simulator.computeGain();
-        feedBack(5, 1, 1);
+        feedBack(20, 1, 1);
       }
       else if(strcmp(strings[0], "S") == 0){
         analogWrite(simulator.getLedPin(), atoi(strings[1]));
