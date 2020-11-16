@@ -1,8 +1,8 @@
 # Calibration files
 
-## Files description
-
 This folder contains files that can be use to compute both taus and dead time of each LDR and Arduino, following the next steps:
+
+## Files description
 
 1. Run [ldr_fit.ino](./ldr_fit.ino) to compute both taus (time to the response reaches 63% of the final response) from a step up response (function: steps_up) or step down (function: steps_down). The program fits a exponencial funciton: $ f(x) = A\*e^{Bx}+c $.
 
