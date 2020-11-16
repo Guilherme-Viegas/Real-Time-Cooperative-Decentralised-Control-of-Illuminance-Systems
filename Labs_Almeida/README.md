@@ -7,5 +7,5 @@
 ### November 2020
 
 This part is separated in two folders:
-1. [Controller](https://github.com/Guilherme-Viegas/SCTDR/tree/master/Labs_Almeida/controller) contains the part of the PID controller and its [README](https://github.com/Guilherme-Viegas/SCTDR/tree/master/Labs_Almeida/controller/README.md).
-2. [ldr_fit](https://github.com/Guilherme-Viegas/SCTDR/tree/master/Labs_Almeida/ldr_fit) where Arduino's constants are computed and its [README](https://github.com/Guilherme-Viegas/SCTDR/tree/master/Labs_Almeida/ldr_fit/README.md).
+1. [Controller](./controller) contains the part of the PID controller and its [README](./controller/README.md).
+2. [ldr_fit](./ldr_fit) where Arduino's constants are computed and its [README](./ldr_fit/README.md).
