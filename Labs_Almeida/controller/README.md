@@ -1,5 +1,7 @@
 # PI controller
 
+The code follows a syntax of [CamelCase](https://pt.wikipedia.org/wiki/CamelCase) and also the classes are encapsulated throughout the files.
+
 ## Files description
 This folder contains the Controller PID, and to run it, it should be connected one LDR between VCC and an analog pin and one led between a digital pin and ground, and then speacify it: ```ControllerPid pid(DIGITAL_PIN, ANALOG_PIN);```.
 
@@ -11,3 +13,9 @@ Containing of each file:
   * [util.cpp](./util.cpp) and [util.h](./util.h) - it contains functions that can be use allover the code.
   
 ## Control flow
+
+The controller is divided in two parts, the setup and the loop.
+
+### setup()
+
+The Led and Ldr are declared in Pins 3 and A0, respectively, as well as both Taus. To compute the gain (Pwm to Lux) and offset (room light with led turned off) the program does one step up at each time and then down (total of 510steps). In each step it waits 50ms to the led establish, so it will take at least 510\*50e-3 = 25,5 seconds. 
