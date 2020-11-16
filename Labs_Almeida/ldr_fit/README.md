@@ -1,7 +1,7 @@
 This folder contains files that can be use to compute both taus and dead time of each LDR and Arduino, following the next steps:
 
 
-1. Run [ldr_fit.ino](ldr_fit/ldr_fit.ino) to compute both taus (time to the response reaches 63% of the final response) from a step up response (function: steps_up) or step down (function: steps_down). The program fits a exponencial funciton: $f(x) = A\*e^{Bx}+c$. $a^2+b^2=c^2$
+1. Run ![ldr_fit.ino](ldr_fit/ldr_fit.ino) to compute both taus (time to the response reaches 63% of the final response) from a step up response (function: steps_up) or step down (function: steps_down). The program fits a exponencial funciton: $f(x) = A\*e^{Bx}+c$. $$a^2+b^2=c^2$$
 
 2. Copy the data from Serial Monitor, and paste it into [Text file.txt](https://github.com/Guilherme-Viegas/SCTDR/blob/master/Labs_Almeida/ldr_fit/text_files); Each function will produces a response that, in order to the python file works properly, should be save with the following <name_file>.txt;
   * ldr.setGain() -> calibrated.txt or multiples.txt (if called for multiples values of **m**)
