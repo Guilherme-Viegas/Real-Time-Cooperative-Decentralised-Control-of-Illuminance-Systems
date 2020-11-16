@@ -12,9 +12,9 @@ This folder contains files that can be use to compute both taus and dead time of
   * setps_down() -> negative_step_reponse.txt
 
 3. Run [Python file](./ldr_fit.py) according:
-  * MULTIPLE            -> compute multiple slopes
-  * CALIBRATED          -> compute the gain for the system
-  * CALC_TAU_TEORICO    -> compute theorical tau
+  * MULTIPLE            -> computes multiple slopes
+  * CALIBRATED          -> computes the gain for the system
+  * CALC_TAU_TEORICO    -> computes theorical tau
   * IMAGE               -> shows all figures
   * STEP_RESPONSE       -> computes the tau for both steps and subtracts the dead_time
 
