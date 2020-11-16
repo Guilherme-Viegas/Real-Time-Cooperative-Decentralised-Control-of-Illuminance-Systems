@@ -23,6 +23,4 @@ The Led and Ldr are declared in Pins 3 and A0, respectively, as well as both Tau
 ### loop()
 
 The reference is setted in Lux and the program bounds the lumminance value, so the bright can be assure by the arduino from the pwm range of 0 to 255, on the led pin.
-In other no have a smooth controller, the goal is to follow the theoretical response. This response is described by a first order system equation,
-
-![v_{sim} = v_n - (v_n - v_{n-1})\*exp(\frac{t_n - t_{n+-1}}{tau_{up/down}(n)}) [V]](https://latex.codecogs.com/svg.latex?v_{sim}%20=%20v_n%20-%20(v_n%20-%20v_{n-1})\*e^{\frac{t_n%20-%20t_{n+-1}}{tau_{up/down}(n)}}%20[V])
+In other no have a smooth controller, the goal is to follow the theoretical response. This response is described by a first order system equation with the equation ![v_{sim} = v_n - (v_n - v_{n-1})\*exp(\frac{t_n - t_{n+-1}}{tau_{up/down}(n)}) [V]](https://latex.codecogs.com/svg.latex?v_{sim}%20=%20v_n%20-%20(v_n%20-%20v_{n-1})\*e^{\frac{t_n%20-%20t_{n+-1}}{tau_{up/down}(n)}}%20[V]).
