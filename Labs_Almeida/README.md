@@ -1,4 +1,4 @@
-# SCDTR - Demo 1
+# SCDTR - Demonstration 1
 
 ## Author: [João Tiago Almeida](https://github.com/Joao-Tiago-Almeida)
 ## IST id: 90119
