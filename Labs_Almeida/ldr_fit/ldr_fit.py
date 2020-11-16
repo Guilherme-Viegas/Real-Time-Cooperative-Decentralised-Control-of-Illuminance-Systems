@@ -176,12 +176,12 @@ if STEP_RESPONSE:
 
     steps = ('positive', 'negative') #('positive', 'negative')
     
-    dead_time = []  # computacional delay, which should be constant for each arduino
+    dead_time = []  # computational delay, which should be constant for each arduino
     tau_main = {}
 
     for type in steps:
     
-        time, lux, lux_tau = load_response(f"text_files/{type}_step_reponse.txt")
+        time, lux, lux_tau = load_response(f"text_files/{type}_step_response.txt")
 
         beta = []
         tau = []
