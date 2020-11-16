@@ -10,6 +10,8 @@ This folder contains files that can be use to compute both taus and dead time of
   * ldr.setGain() -> calibrated.txt or multiples.txt (if called for multiples values of **m**)
   * setps_up() -> positive_step_reponse.txt
   * setps_down() -> negative_step_reponse.txt
+  
+Note that the office(box) should be isolated because it waits until it is readed the extreme values in anlog pin.
 
 3. Run [Python file](./ldr_fit.py) according:
   * MULTIPLE            -> computes multiple slopes
