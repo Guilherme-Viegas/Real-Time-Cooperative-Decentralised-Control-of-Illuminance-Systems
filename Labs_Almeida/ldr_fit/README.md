@@ -4,7 +4,7 @@ This folder contains files that can be use to compute both taus and dead time of
 
 ## Files description
 
-1. Run [ldr_fit.ino](./ldr_fit.ino) to compute both taus (time to the response reaches 63% of the final response) from a step up response (function: steps_up) or step down (function: steps_down). The program fits a exponencial funciton: $ f(x) = A\*e^{Bx}+c $.
+1. Run [ldr_fit.ino](./ldr_fit.ino) to compute both taus (time to the response reaches 63% of the final response) from a step up response (function: steps_up) or step down (function: steps_down). The program fits a exponencial funciton: ![f(t) = a*e^{bt}+c ](https://latex.codecogs.com/svg.latex?f(t)%20=%20a*e^{bt}+c).
 
 2. Copy the data from Serial Monitor, and paste it into [Text file.txt](./text_files); Each function will produces a response that, in order to the python file works properly, should be save with the following <name_file>.txt;
   * ldr.setGain() -> calibrated.txt or multiples.txt (if called for multiples values of **m**)
