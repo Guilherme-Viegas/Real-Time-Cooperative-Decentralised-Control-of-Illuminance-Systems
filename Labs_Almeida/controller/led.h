@@ -14,6 +14,7 @@ typedef class Led{
     Led( byte pin );   // constructor
     
     void setBrightness( float v );
+    float getBrightness();
     
 }LED_;
 

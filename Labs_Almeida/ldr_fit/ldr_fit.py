@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import codecs
 from scipy.optimize import curve_fit
 
-MULTIPLE = True
-CALIBRATED = True
+MULTIPLE = False
+CALIBRATED = False
 CALC_TAU_TEORICO = False
 IMAGE = True
 STEP_RESPONSE = True

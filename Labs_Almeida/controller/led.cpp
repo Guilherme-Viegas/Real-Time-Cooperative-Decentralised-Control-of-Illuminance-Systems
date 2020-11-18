@@ -16,6 +16,13 @@ Led::Led( byte pin ){
  */
 void Led::setBrightness( float v ){ analogWrite( t_pin, (byte) v ); }
 
+/*
+ * Sets the brightness
+ *
+ * @return output voltage
+ */
+float Led::getBrightness(){  return analogRead( t_pin ) * VCC/MAX_ANALOG; } // output (volt)
+
 
 
 // ---------------------------------------------Auxiliar Functions---------------------------------------------

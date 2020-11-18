@@ -24,6 +24,7 @@ class ControllerPid{
     
     float t_reference=0; // lux reference
     float t_lastReference=0; // last reference of lux
+    float t_lastError=0;  // prioir error
     
     float t_kp=0, t_ki=0;  // gains
     unsigned long t_to=0; // time of new uff
@@ -46,7 +47,7 @@ class ControllerPid{
     void setUff( float uff );
     float getU();
     unsigned long get_to();
-    void computeFeedbackGain( float output );
+    void computeFeedbackGain(  float output );
     int getLdrPin();
     byte getLedPin();
     float simulator(boolean print);

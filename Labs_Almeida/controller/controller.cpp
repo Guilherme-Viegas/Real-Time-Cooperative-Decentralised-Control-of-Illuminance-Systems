@@ -1,6 +1,5 @@
 #include "controller.h"
 
-
 /*
  * Writes values in EEPROM
  * Initialize the interruption
@@ -12,8 +11,8 @@
 ControllerPid::ControllerPid( byte led, int ldr ){
   // Serial.println("You created a new PID controller object!");
   // NICE VALUES: kp = 0.75; ki = 0.025;
-  t_kp = 0.70;
-  t_ki = 0.030;
+  t_kp = 0.25;
+  t_ki = 0.019;
 
   // LED and LDR pins
   t_ldrPin = ldr;
@@ -29,25 +28,37 @@ ControllerPid::ControllerPid( byte led, int ldr ){
  */
 void ControllerPid::computeFeedbackGain( float output ){
   noInterrupts();
-  
+
   float sim = simulator(false); // simulator response (volt)
-  output =  output * VCC/MAX_ANALOG; // output (volt)
-    
-  float error = sim - output;  // determines the error between the system output and the reference value (Volt)
   
-  if( t_deadZone && abs(error) < VCC/MAX_DIGITAL ){ // apply dead zone if the error is less than 1 = 5 / 255 (V/PWM)
-   
-    error = 0;  // dead zone
-    static float b = ldr.get_offset(); // minimum value
-    if( t_reference == b ){  t_uInt = 0; }  // when the led is off, the system can not absorve energy, so it will never steady by itself!
+  output =  output * VCC/MAX_ANALOG; // output (volt)
+  
+  float error = sim - output;  // determines the error between the system output and the reference value (Volt)
+  // Serial.println(getU(), 5);
+
+  
+  if( t_deadZone){// DEAD ZONE
+    
+    if (abs(error) <  2*VCC/MAX_DIGITAL){ // apply dead zone if the error is less than 2* 5 / 255 (V/PWM) : 
+
+      if( t_reference > 2 && abs(error) > 0.5*VCC/MAX_DIGITAL){ /*exit*/ } // exits deadzone if the error is more than 0.5 * VCC/MAX_DIGITAL for pwm greater than 10.  
+      else{
+        error = 0;  // dead zone
+        static float b = ldr.get_offset(); // minimum value
+        if( t_reference == b ){  t_integralReset = true; }  // when the led is off, the system can not absorve energy, so it will never steady by itself!
+      }
+    }
+    
   }
 
-  if( t_integralReset){ // resets cumalative error
-    t_integralReset = false;
-    t_uInt = 0;
+  if( t_integralReset){   // reset integral
+    t_integralReset = false;  // integral available
+    t_uInt = 0; // resets cumalative error
+    t_lastError = 0;  // resets previous error
     
   }else{  // Itegral term
-    t_uInt += t_ki * error * t_sampleTime; // compute integral
+    // t_uInt += t_ki * error * t_sampleTime; // compute integral through naīve
+    t_uInt += (t_ki*t_sampleTime/2)*(error+t_lastError); // compute integral through Tustin
 
     if( t_antiWindUp ){ // apllies anti wind up window
       float intLimitMax = VCC - t_kp*error - t_uff ; // the saturation when there is dark - the output is VCC [V]
@@ -55,8 +66,9 @@ void ControllerPid::computeFeedbackGain( float output ){
       t_uInt = t_uInt > intLimitMax ? intLimitMax : ( t_uInt < intLimitMin ? intLimitMin : t_uInt ); // integral saturation
     }
   }
- 
+  t_lastError = error;
   t_ufb = t_kp*error + t_uInt; // return the feedback signal 
+
   interrupts();
 }
 
@@ -88,6 +100,7 @@ void ControllerPid::setReferenceLux( float reference ){
 void ControllerPid::setUff( float uff ){
   
     t_uff = t_feedfoward ? uff * VCC/MAX_DIGITAL : ldr.get_offset(); // feedfoward impulse
+    t_ufb = 0; // forget last feedback
     t_to = millis();
 }
 
@@ -101,7 +114,7 @@ unsigned long ControllerPid::get_to(){ return t_to; }
 /*
  * Return system response PWM
  */
-float ControllerPid::getU(){  
+float ControllerPid::getU(){
     float u = t_ufb + t_uff;  // compute u
     return round( boundPWM(u * MAX_DIGITAL/VCC) ) ;
 }
@@ -143,7 +156,7 @@ float ControllerPid::simulator( boolean print ){
 
   if(print){
     // Reference
-    Serial.print( t_reference );  // Voltlux
+    Serial.print( t_reference );  // Lux
     Serial.print("\t");
 
     // simulator
@@ -168,5 +181,6 @@ void ControllerPid::output(){
   t_sum += t_output[t_counter%t_meanSize]; // compute the sum
   t_counter ++; // updates new value
   
-  Serial.println( t_sum/t_meanSize ); // LUX
+  Serial.println( t_sum/t_meanSize ); // LUX - mean
+  
 }
