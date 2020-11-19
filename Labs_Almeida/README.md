@@ -10,4 +10,4 @@ This part is separated in two folders:
 1. [Controller](./controller) contains the part of the PID controller and its [README](./controller/README.md).
 2. [ldr_fit](./ldr_fit) where Arduino's constants are computed and its [README](./ldr_fit/README.md).
 
-For local reading, it is suggested to open all README.md files in a Markdown preview.
+For local reading, it is suggested to open all README files in a Markdown preview.

@@ -40,7 +40,6 @@ void loop() {
     if ( Serial.available() ){
       String work_percentage = Serial.readString();  // read input at PWM pin 'led_pin'
       pid.setReferenceLux( work_percentage.toFloat() ); // read input value and ajust the reference brightness
-      pid.computeFeedbackGain( analogRead( pid.getLdrPin() ) );
     }  // anytime there is an input
 
     pid.led.setBrightness( pid.getU() );
