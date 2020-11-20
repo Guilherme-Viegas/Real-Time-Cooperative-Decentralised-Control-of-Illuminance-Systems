@@ -3,7 +3,7 @@
 boolean LOOP = true;
 boolean SIMULATOR = true;
 int i = 0;
-int m = -0.718;
+float m = -0.718;
 void setup() {
 
   Serial.begin(2000000);

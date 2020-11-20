@@ -7,7 +7,7 @@ ControllerPid pid(3, A0); // led and ldr pin
 
 // Global variables
 
-boolean LOOP = true;
+boolean LOOP = false;
 boolean SIMULATOR = true;
 
 void setup() {
