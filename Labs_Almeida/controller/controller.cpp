@@ -165,8 +165,8 @@ float ControllerPid::simulator( boolean print ){
     Serial.print("\t");
 
     // led 
-    // Serial.print( ldr.luxToPWM( getU() , true ) );  // LUX
-    // Serial.print("\t"); 
+    Serial.print( ldr.luxToPWM( getU() , true ) );  // LUX
+    Serial.print("\t"); 
   }
   
   return lux_out ;  // simulator value in Volt
