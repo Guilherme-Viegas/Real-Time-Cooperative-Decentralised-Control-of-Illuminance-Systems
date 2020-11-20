@@ -11,10 +11,11 @@ typedef class Led{
     byte t_initial_value_pwm = 0.0;
 
   public:
-    Led( byte pin );   // constructor
+    Led( );   // constructor
     
     void setBrightness( float v );
     float getBrightness();
+    void setPin(byte pin){ t_pin = pin; } // sets the LED pin
     
 }LED_;
 

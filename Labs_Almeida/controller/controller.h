@@ -38,10 +38,11 @@ class ControllerPid{
     unsigned short t_counter = 0; // output counter
 
   public:
-    ControllerPid( byte led, int ldr );  // constructor
 
-    LDR ldr = t_ldrPin;
-    LED_ led = t_ledPin;
+    LDR ldr;
+    LED_ led;
+
+    ControllerPid( byte pin_led, int pin_ldr );  // constructor
 
     void setReferenceLux( float reference );
     void setUff( float uff );

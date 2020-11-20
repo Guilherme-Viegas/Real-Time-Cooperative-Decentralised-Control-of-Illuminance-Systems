@@ -4,9 +4,8 @@
 
 // ----------------------------------------LdrController Class----------------------------------------
 
-LdrController::LdrController( int pin ){
+LdrController::LdrController( ){
   // Serial.println("You created a new LDR object!");
-  t_pin = pin;
   }
 
 /*
@@ -20,7 +19,7 @@ void LdrController::setGain( byte led_pin, float m ){
   t_m = m; // computed value
   t_bb = log10(1E5); // value for the resistor during the dark
 
-  compute_gain( led_pin );
+  computeGain( led_pin );
   // t_gain = 0.2930;
   // t_offset = 0;
   // t_maxLux = 75.30;
@@ -32,7 +31,7 @@ void LdrController::setGain( byte led_pin, float m ){
  * Computes the linear relation between lux and pwm
  *
  */
-void LdrController::compute_gain( byte led_pin ){ 
+void LdrController::computeGain( byte led_pin ){ 
 
   byte pwm = 0; // pwm to be written in led
   float flag = 1; // flag is 1 if the direction is up and 0 if it is down

@@ -8,15 +8,19 @@
  * @param Ki integral gain
  * @param Kd derivative gain
  */
-ControllerPid::ControllerPid( byte led, int ldr ){
+ControllerPid::ControllerPid( byte pin_led, int pin_ldr ){
   // Serial.println("You created a new PID controller object!");
   // NICE VALUES: kp = 0.75; ki = 0.025;
   t_kp = 0.25;
   t_ki = 0.019;
 
   // LED and LDR pins
-  t_ldrPin = ldr;
-  t_ledPin = led;
+  t_ldrPin = pin_ldr;
+  t_ledPin = pin_led;
+
+  // SETS pins 
+  led.setPin( t_ledPin );
+  ldr.setPin( t_ldrPin );
 
 }
 

@@ -2,8 +2,7 @@
 
 // ---------------------------------------------Led Class---------------------------------------------
 
-Led::Led( byte pin ){
-  t_pin = 3;
+Led::Led(){
   pinMode(t_pin, OUTPUT);
   // Serial.println("You created a new LED object locate at pin" + String(t_pin) + "!");
 }
@@ -21,7 +20,7 @@ void Led::setBrightness( float v ){ analogWrite( t_pin, (byte) v ); }
  *
  * @return output voltage
  */
-float Led::getBrightness(){  return analogRead( t_pin ) * VCC/MAX_ANALOG; } // output (volt)
+float Led::getBrightness(){  return analogRead( t_pin ) * VCC/MAX_DIGITAL; } // output (volt)
 
 
 

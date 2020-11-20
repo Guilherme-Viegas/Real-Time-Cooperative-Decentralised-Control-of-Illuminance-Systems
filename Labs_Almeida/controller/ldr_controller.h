@@ -51,7 +51,8 @@ typedef class LdrController{
     int t_pin;
 
   public:
-    LdrController( int t_pin = 0 );   // constructor
+    LdrController( );   // constructor
+    
     float luxToOutputVoltage( float x, boolean reverse = false );
     float luxToPWM( float x, bool reverse = false );
     float getOutputVoltage();
@@ -59,7 +60,8 @@ typedef class LdrController{
     float get_offset(){ return t_offset; }
     float boundLUX( float lux );
     void setGain( byte led_pin, float m = -0.718 );
-    void compute_gain( byte led_pin );
+    void computeGain( byte led_pin );
+    void setPin(int pin){ t_pin = pin; } // sets the LDR pin
 
     TAU t_tau_up; // create Tau type
     TAU t_tau_down; // create Tau type
