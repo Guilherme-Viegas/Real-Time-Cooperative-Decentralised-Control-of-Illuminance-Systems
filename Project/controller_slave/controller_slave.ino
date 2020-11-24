@@ -13,14 +13,14 @@ ControllerPid pid(3, A0);
 boolean LOOP = false;
 boolean SIMULATOR = true;
 
-int id_master = 1;
-volatile can_frame_stream cf_stream;
 
+volatile can_frame_stream cf_stream;
+volatile float gain_array[9];
 volatile bool interrupt = false;
 volatile bool mcp2515_overflow = false;
 volatile bool arduino_overflow = false;
 int counter = 0;
-float gain_array[12];
+int id_arduino = 1;
 union my_can_msg {
   unsigned long value;
   unsigned char bytes[4];
@@ -97,6 +97,7 @@ void setup() {
   //pidC.led.setBrightness(0);
 
   delay(500);
+
   //send a few msgs in a burst
   /*for ( int i = 0; i < 4 ; i++ ) {
     Serial.print( "Sending: " );
@@ -104,14 +105,7 @@ void setup() {
     if ( write( i , counter++ ) != MCP2515::ERROR_OK )
       Serial.println( "\t\t\t\tMCP2515 TX Buf Full" );
   }*/
-  Serial.print( "Sending: " );
-  write( 2, 0, 1);
-  write( 3, 0, 1);
-  pid.led.setBrightness(0);
-  gain_array[3] = pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true);
-  delay(1000);
-  
-  
+
   /*
   Serial.println("Arduino A");
   Serial.println(pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true));
@@ -138,6 +132,7 @@ void setup() {
 
 
 void loop() {
+
   if ( interrupt ) {
     interrupt = false;
     if ( mcp2515_overflow ) {
@@ -155,19 +150,16 @@ void loop() {
     cli(); has_data = cf_stream.get( frame ); sei();
     while( has_data ) {
       my_can_msg msg;
-      for( int i = 0 ; i < 4 ; i++ )
-        msg.bytes[ i ] = frame.data[ i ];
-      Serial.print( "\t\tReceiving: " ); Serial.println( msg.value );
-      if(frame.can_id == id_master){
-        if(int(msg.bytes[0]) == 2){
-          Serial.print("NIGGA 2");
-          gain_array[7] = float(msg.value);
+      if(int(frame.can_id) == id_arduino){
+        for( int i = 0 ; i < 4 ; i++ )
+          msg.bytes[ i ] = frame.data[ i ];
+        Serial.print( "\t\tReceiving: " ); Serial.println( msg.value );
+        if(float(msg.value) == 0){
+          write(1, pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true), id_arduino);
         }
-        else if(int(msg.bytes[0]) == 3){
-          Serial.print("NIGGA 3");
-          gain_array[11] = float(msg.value);
-        }
+        pid.led.setBrightness(float(msg.value));
       }
+        
       cli(); has_data = cf_stream.get( frame ); sei();
     }
   }
