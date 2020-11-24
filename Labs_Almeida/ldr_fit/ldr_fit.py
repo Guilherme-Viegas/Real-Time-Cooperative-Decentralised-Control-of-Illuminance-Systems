@@ -4,18 +4,18 @@ import matplotlib.pyplot as plt
 import codecs
 from scipy.optimize import curve_fit
 
-MULTIPLE = False
+MULTIPLE = True
 CALIBRATED = False
 CALC_TAU_TEORICO = False
 IMAGE = True
-STEP_RESPONSE = True
+STEP_RESPONSE = False
 
 
 # load variables from files and check their dimensions
 def load_variables(name_file_x: str, multiple: bool) -> (np.array,np.array):
 
     # load files
-    f = codecs.open(name_file_x, "r", "utf-16")
+    f = codecs.open(name_file_x, "r", "utf-8")
 
     temp = f.read() # read file
     temp = temp.replace('\r','').split('\n')  # slip each line
@@ -106,9 +106,9 @@ def exp(x, a, b, c):
 
 best = []
 if MULTIPLE:
-    suf = '' # sufixe
+    suf = 'B2' # sufixe
     xx,yy = load_variables(f'text_files/multiples{suf}.txt', True)
-    func = lambda x: -0.71 - 0.001*x if suf == '' else -0.6 - 0.01*x
+    func = lambda x: -0.71 - 0.001*x if suf == '' else -0.56 - 0.002*x
     for i in range(len(yy)):    # for each trial
         x=xx[i]
         y=yy[i]
