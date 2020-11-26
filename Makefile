@@ -22,7 +22,8 @@ OBJ := $(SRC:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
 # ${variable%pattern} is like $variable, minus shortest matching pattern from the back-end;
 # ${variable##pattern} is like $variable, minus the longest matching pattern from front-end.
 
-$(FILES): 
+$(FILES):
+	@mkdir -p $(OBJDIR)
 	@for f in $(FILES) ;\
 	do \
 		$(CPP) $(FLAGS) -c $(SRCDIR)/$${f##*/}.cpp -o $(OBJDIR)/$${f##*/}.o ;\
@@ -42,7 +43,7 @@ run:
 		@./$(EXECUTABLE)
 
 clean:
-		@rm	-f	$(OBJ) $(EXECUTABLE) 
+		@rm	-rf	$(OBJDIR) $(EXECUTABLE) 
 		@echo cleaned
 
 # cat -e -t -v Makefile
