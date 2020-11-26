@@ -2,8 +2,10 @@
 CPP = g++
 #	Compiler Flags
 FLAGS = -Wall -Werror
+#	Compiler Libraries
+LIBS = -lwiringPi
 #	Name of the Server
-EXECUTABLE = phoenix
+EXECUTABLE := phoenix
 
 
 SRCDIR = src
@@ -11,7 +13,7 @@ OBJDIR = obj
 
 #	Sources
 SRC = $(wildcard $(SRCDIR)/*.cpp)
-#	Headers 
+#	Headers
 HDRS = $(wildcard $(SRCDIR)/*.hpp)
 #	Creats Objects names
 FILES := $(SRC:$(SRCDIR)/%.cpp=$(OBJDIR)/%)
@@ -29,26 +31,30 @@ $(FILES):
 		$(CPP) $(FLAGS) -c $(SRCDIR)/$${f##*/}.cpp -o $(OBJDIR)/$${f##*/}.o ;\
 	done
 
-	
 $(EXECUTABLE):
-	@$(CPP) $(FLAGS) $(OBJ) -o $(EXECUTABLE)
+	@$(CPP) $(FLAGS) $(LIBS) $(SRC) -o $(EXECUTABLE)
 
+# compiles
+all:  $(EXECUTABLE)
+
+# gets info
 info:
 		@echo executable : $(EXECUTABLE)
 		@echo source     : $(SRC)
 		@echo headers    : $(HDRS)
 		@echo objects    : $(OBJ)
+		@echo libraries	 : $(LIBS)
 
+# runs executable
 run:
 		@./$(EXECUTABLE)
 
+# deletes the executable and the objects
 clean:
-		@rm	-rf	$(OBJDIR) $(EXECUTABLE) 
+		@rm	-rf	$(OBJDIR) $(EXECUTABLE)
 		@echo cleaned
 
 # cat -e -t -v Makefile
-
-
-
+# dmesg
 
 # for further reading: https://stackoverflow.com/questions/25362847/cpp-to-o-files-in-makefile
