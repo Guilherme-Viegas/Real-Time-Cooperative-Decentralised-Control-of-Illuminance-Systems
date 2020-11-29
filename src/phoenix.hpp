@@ -4,8 +4,7 @@
 #include <string>
 #include <iostream>
 
-
-void print(std::string str);
+int ave();
 
 
 

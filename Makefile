@@ -4,7 +4,7 @@ CPP = g++
 #	Compiler Flags
 FLAGS = -Wall -Werror
 #	Compiler Libraries
-LIBS = -lwiringPi
+LIBS = 
 #	Name of the Server
 EXECUTABLE := phoenix
 
@@ -37,7 +37,7 @@ $(EXECUTABLE):
 	@$(CPP) $(FLAGS) $(LIBS) $(SRC) -o $(EXECUTABLE)
 
 # pre define number of clients
-C := 1
+C := 2
 
 # command to run
 CMD := ./$(EXECUTABLE)
@@ -64,6 +64,7 @@ client:
 			x-terminal-emulator -hold -e "$(CMD)" & \
 			((num = num + 1)) ; \
 		done
+
 # to run x-terminal-emulator without terminating, add: -hold
 
     # x-terminal-emulator -e "./phoenix" & \
