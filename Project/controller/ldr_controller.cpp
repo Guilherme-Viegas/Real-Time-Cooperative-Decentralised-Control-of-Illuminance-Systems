@@ -18,10 +18,12 @@ void LdrController::setGain( byte led_pin, float m, float b ){
 
   t_m = m; // computed value
   t_bb = b; // value for the resistor during the dark
+
   //computeGain( led_pin );
   t_gain = 0.2930;
   t_offset = 0;
-  t_maxLux = 75.30; 
+  t_maxLux = 75.30;
+  //255*t_gain + t_offset;
 
 }
 
@@ -47,19 +49,9 @@ void LdrController::computeGain( byte led_pin ){
   for(int i=0; i<cicles; i++){  // has to start in 0
     
     analogWrite(led_pin, pwm); // sets the pwm 
-    delay(40);
+    delay(50);
  
     voltageOut = analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut += analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-    voltageOut = voltageOut / 10.0;
   
     lux = luxToOutputVoltage( voltageOut, true); // compute the lux
 

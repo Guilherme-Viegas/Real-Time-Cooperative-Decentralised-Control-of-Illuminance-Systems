@@ -1,6 +1,3 @@
-#ifndef CAN_BUFFER_H
-#define CAN_BUFFER
-
 #include <SPI.h>
 #include <mcp2515.h>
 
@@ -18,5 +15,3 @@ class can_frame_stream {
     int put( can_frame & );
     int get( can_frame & );
 }; //create one object to use
-
-#endif

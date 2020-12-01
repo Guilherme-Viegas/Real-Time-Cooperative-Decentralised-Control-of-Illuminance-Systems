@@ -6,8 +6,9 @@
 ***/
 #include <EEPROM.h>
 
+byte addr = 3;
 float m = -0.668;
-float b = 4.6535;
+float b = 4.65353;
 
 
 void setup() {
@@ -20,19 +21,13 @@ void setup() {
   int eeAddress = 0;   //Location we want the data to be put.
 
   //One simple call, with the address first and the object second.
+  EEPROM.put(eeAddress, addr);
+  eeAddress += sizeof(byte);
   EEPROM.put(eeAddress, m);
   eeAddress += sizeof(float); //Move address to the next byte after float 'f'.
   EEPROM.put(eeAddress, b);
   eeAddress += sizeof(float); //Move address to the next byte after float 'f'.
   
-  eeAddress = 0;
-  Serial.print("M = ");
-  EEPROM.get(eeAddress, f);
-  Serial.println(f, 4);
-  eeAddress += sizeof(float);
-  Serial.print("B = ");
-  EEPROM.get(eeAddress, f);
-  Serial.println(f, 4);
 
 }
 
