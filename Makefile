@@ -1,77 +1,138 @@
 SHELL := /bin/bash  # Use bash syntax
 #	Compiler
-CPP = g++
+CXX = g++
 #	Compiler Flags
-FLAGS = -Wall -Werror
+CXXFLAGS = -Wall -Werror -std=c++11 -g
 #	Compiler Libraries
-LIBS = 
+LIBS = #-lboost_system -pthread
+#	Name of the Client
+CLIENT := client_exe
 #	Name of the Server
-EXECUTABLE := phoenix
-
-
-
-SRCDIR = src
-OBJDIR = obj
-
+SERVER := server_exe
+# path of the executables
+CLIDIR = client_code
+SERVDIR = server_code
+# path to the objects
+CLIOBJDIR = $(CLIDIR)/obj
+SERVOBJDIR = $(SERVDIR)/obj
 #	Sources
-SRC = $(wildcard $(SRCDIR)/*.cpp)
+CLISRC = $(wildcard $(CLIDIR)/*.cpp)
+SERVSRC = $(wildcard $(SERVDIR)/*.cpp)
 #	Headers
-HDRS = $(wildcard $(SRCDIR)/*.hpp)
+CLIHDRS = $(wildcard $(CLIDIR)/*.hpp)
+SERVHDRS = $(wildcard $(SERVDIR)/*.hpp)
 #	Creats Objects names
-FILES := $(SRC:$(SRCDIR)/%.cpp=$(OBJDIR)/%)
-#	Creats Objects names
-OBJ := $(SRC:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
-
-
-# ${variable%pattern} is like $variable, minus shortest matching pattern from the back-end;
-# ${variable##pattern} is like $variable, minus the longest matching pattern from front-end.
-
-$(FILES):
-	@mkdir -p $(OBJDIR)
-	@for f in $(FILES) ;\
-	do \
-		$(CPP) $(FLAGS) -c $(SRCDIR)/$${f##*/}.cpp -o $(OBJDIR)/$${f##*/}.o ;\
-	done
-
-$(EXECUTABLE):
-	@$(CPP) $(FLAGS) $(LIBS) $(SRC) -o $(EXECUTABLE)
+CLIFILES := $(CLISRC:$(CLIDIR)/%.cpp=$(CLIOBJDIR)/%)
+SERVFILES := $(SERVSRC:$(SERVDIR)/%.cpp=$(SERVOBJDIR)/%)
+#	Creats Objects files
+CLIOBJ := $(CLISRC:$(CLIDIR)/%.cpp=$(CLIOBJDIR)/%.o)
+SERVOBJ := $(SERVSRC:$(SERVDIR)/%.cpp=$(SERVOBJDIR)/%.o)
 
 # pre define number of clients
 C := 2
 
-# command to run
-CMD := ./$(EXECUTABLE)
+# command to run the client
+CMD := ./$(CLIENT)
 
-# compiles
-all:  $(EXECUTABLE)
+# ${variable%pattern} is like $variable, minus shortest matching pattern from the back-end;
+# ${variable##pattern} is like $variable, minus the longest matching pattern from front-end.
+
 
 # gets info
 info:
-		@echo executable : $(EXECUTABLE)
-		@echo source     : $(SRC)
-		@echo headers    : $(HDRS)
-		@echo objects    : $(OBJ)
-		@echo libraries	 : $(LIBS)
+		clear
+		@echo client  👨‍💻💡  : $(CLIENT)
+		@echo server  💻🍓   : $(SERVER)
+		@echo "The Makefile was successfully compiled!🏁🏎"
 
-# runs executable
-run:
+# get all
+all: client server
+
+# creates objects and the executable
+client:
+	@mkdir -p $(CLIOBJDIR)
+	@for f in $(CLIFILES) ;\
+	do \
+		$(CXX) $(CXXFLAGS) -c $(CLIDIR)/$${f##*/}.cpp -o $(CLIOBJDIR)/$${f##*/}.o ;\
+	done
+	@$(CXX) $(CXXFLAGS) $(LIBS) $(CLIOBJ) -o $(CLIENT)
+
+server:
+	@mkdir -p $(SERVOBJDIR)
+	@for f in $(SERVFILES) ;\
+	do \
+		$(CXX) $(CXXFLAGS) -c $(SERVDIR)/$${f##*/}.cpp -o $(SERVOBJDIR)/$${f##*/}.o ;\
+	done
+	@$(CXX) $(CXXFLAGS) $(LIBS) $(SERVOBJ) -o $(SERVER)
+
+
+# runs the executable
+run_client:
+		clear
+		@echo "              ___________________________________________________                "
+		@echo "             /                                                    \         	    "
+		@echo "             |    _____________________________________________    |				"
+		@echo "             |   |                             ||              |   |				"
+		@echo "             |   |  Welcome client.          ,-..-,            |   |				"
+		@echo "             |   |                           {_.='}            |   |				"
+		@echo "             |   |                      \    {_.='}    /       |   |				"
+		@echo "             |   |                          ,.____.,           |   |				"
+		@echo "             |   |                         /   ()   \          |   |				"
+		@echo "             |   |                   -    |    \/    |    -    |   |				"
+		@echo "             |   |                         \   /\   /          |   |				"
+		@echo "             |   |                          '' __ ''           |   |				"
+		@echo "             |   |                      /              \       |   |				"
+		@echo "             |   |                             |               |   |				"
+		@echo "             |   |                                             |   |				"
+		@echo "             |   |                                             |   |				"
+		@echo "             |   |_____________________________________________|   |				"
+		@echo "             |                                                     |				"
+		@echo "             \____________________________________________________/				"
+		@echo "                    \_______________________________________/					"
+		@echo "               _______________________________________________					"
+		@echo "            _-'    .-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.  --- '-_				"
+		@echo "          -'.-.-. .---.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.--.  .-.-.'-_			    "
+		@echo "        -'.-.-.-. .---.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-'__'. .-.-.-.'-_	    	"
+		@echo "     _-'.-.-.-.-. .-----.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-----. .-.-.-.-.'-_		"
+		@echo "  _-'.-.-.-.-.-. .---.-. .-----------------------------. .-.---. .---.-.-.-.'-_	"
+		@echo " :-----------------------------------------------------------------------------:	"
+		@echo " '---._.-----------------------------------------------------------------._.---'	"
 		@$(CMD)
+
 
 # creats multiple client
 # e.g. make client C=3 CMD="./phoenix g l 2"
-client:
+run_n_client:
 		@num=1 ; while [[ $$num -le $(C) ]] ; do \
 			x-terminal-emulator -hold -e "$(CMD)" & \
 			((num = num + 1)) ; \
 		done
+
+# runs the server
+run_server:
+		clear
+
+		@echo "       .~~.   .~~.                                                                   "
+		@echo "      '. \ ' ' / .'                                                                  "
+		@echo "       .~ .~~~..~.           Server Type                :     Media Service          "
+		@echo "      : .~.'~'.~. :                                                                  "
+		@echo "     ~ (   ) (   ) ~         Machine                    :     Raspberry pi 3 model B "
+		@echo "    ( : '~'.~.'~' : )        Operation System           :     Raspian TODO           "
+		@echo "     ~ .~ (   ) ~. ~         Clients                    :     Arduinos               "
+		@echo "      (  : '~' :  )          Type of Communications     :     Serial                 "
+		@echo "       '~ .~~~. ~'                                                                   "
+		@echo "           '~'                                                                       "
+		@./$(SERVER)
 
 # to run x-terminal-emulator without terminating, add: -hold
 
     # x-terminal-emulator -e "./phoenix" & \
 # deletes the executable and the objects
 clean:
-		@rm	-rf	$(OBJDIR) $(EXECUTABLE)
-		@echo cleaned
+		clear
+		@rm	-rf	$(CLIOBJDIR) $(CLIENT) $(SERVOBJDIR) $(SERVER)
+		@echo "You got ride of both executables and their obejcts!🧹"
+
 
 # cat -e -t -v Makefile
 # dmesg

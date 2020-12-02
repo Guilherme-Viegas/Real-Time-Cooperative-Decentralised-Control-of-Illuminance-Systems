@@ -5,6 +5,8 @@ void setup() {
 }
  
 void loop() {
- Serial.write("Hello from arduino\n");
+ Serial.write("hi");
+ delay(500);
+ Serial.write("\n");
  delay(500);
 }
