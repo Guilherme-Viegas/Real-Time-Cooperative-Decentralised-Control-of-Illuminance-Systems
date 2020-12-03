@@ -5,11 +5,12 @@
 // This file supports the server throughout the function, with auxiliar functions
 // */
 #include <string>
+#include <bitset> 
 #include <iostream>
-#include <boost/asio.hpp>
-#include <fstream>
 
-std::string strip(boost::asio::streambuf buf, std::string ch);
+#define ASCII 8
+
+std::bitset<ASCII> ascii2Binary(char ch);
 
 
 

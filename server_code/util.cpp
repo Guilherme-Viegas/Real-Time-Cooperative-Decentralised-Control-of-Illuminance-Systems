@@ -1,19 +1,26 @@
 #include "util.hpp"
 
+
 /**
- * Remove the character ch from str.
+ * Compute the binary number from a deciaml number
  * 
- * Retrun new string
+ * @return bitset
  */
-
-std::string strip(boost::asio::streambuf buf, std::string ch)
+std::bitset<ASCII> ascii2Binary(char ch)
 {
-    std::string str = "não resultou";
+    std::bitset<ASCII> bin;
 
-    //str.erase(std::remove(str.begin(), str.end(), ch), str.end());
-    
-    return str; 
+    for( int i=ASCII-1; i>=0; i--)
+    {  
+        bin[i] = ch%2;  // evaluating the minor bit
+        ch = ch/2;  // shift right
+    }  
+    for( int i=0; i < ASCII; i++){
+        std::cout << bin[i];
+    }
+    std::cout << std::endl;
+
+    return bin;
 }
-
 
 
