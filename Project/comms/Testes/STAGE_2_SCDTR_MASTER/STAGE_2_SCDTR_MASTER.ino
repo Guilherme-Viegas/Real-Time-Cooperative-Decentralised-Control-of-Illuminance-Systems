@@ -1,7 +1,7 @@
 #include <SPI.h>
 #include <mcp2515.h>
 #include "can_buffer.cpp"
-
+#include "message.h"
 MCP2515 mcp2515(10);
 
 volatile can_frame_stream cf_stream;
@@ -46,14 +46,15 @@ union my_can_msg {
   unsigned char bytes[4];
 };
 
-MCP2515::ERROR write(uint32_t id, uint32_t val) {
-  can_frame frame;
+MCP2515::ERROR write(uint32_t id, uint32_t val){
+  can_frame frame = broadcast_message();
   frame.can_id = id;
   frame.can_dlc = 4;
   my_can_msg msg;
   msg.value = val; //pack data
-  for ( int i = 0; i < 4; i++ ) //prepare can message
+  for ( int i = 0; i < 4; i++ ){ //prepare can message
     frame.data[i] = msg.bytes[i];
+  }
   //send data
   return mcp2515.sendMessage(&frame);
 }
@@ -61,28 +62,33 @@ MCP2515::ERROR write(uint32_t id, uint32_t val) {
 
 
 void setup() {
-  Serial.begin(500000);
+  Serial.begin(2000000);
   SPI.begin();
   attachInterrupt(0, irqHandler, FALLING);
   //Must tell SPI lib that ISR for interrupt vector zero will be using SPI
   SPI.usingInterrupt(0);
   mcp2515.reset();
   mcp2515.setBitrate(CAN_1000KBPS, MCP_16MHZ);
-  //mcp2515.setNormalMode();
-  mcp2515.setLoopbackMode(); //for local testing
+  mcp2515.setNormalMode();
+  //mcp2515.setLoopbackMode(); //for local testing
 }
 
 void loop() {
   //send a few msgs in a burst
-  for ( int i = 0; i < 4 ; i++ ) {
+  can_frame test = broadcast_message();
+  code2Ascii(test);
+  Serial.println("TESTEID: " + String(test.can_id, HEX));
+  
+  mcp2515.sendMessage(&broadcast_message());
+  /*for ( int i = 0; i < 4 ; i++ ) {
     Serial.print( "Sending: " );
     Serial.println( counter );
-    if ( write( i , counter++ ) != MCP2515::ERROR_OK )
+    if (  mcp2515.sendMessage(&broadcast_message()) != MCP2515::ERROR_OK )
       Serial.println( "\t\t\t\tMCP2515 TX Buf Full" );
-  }
-  if ( interrupt ) {
+  }*/
+  if ( interrupt ){
     interrupt = false;
-    if ( mcp2515_overflow ) {
+    if ( mcp2515_overflow ){
       Serial.println( "\t\t\t\tMCP2516 RX Buf Overflow" );
       mcp2515_overflow = false;
     }
@@ -91,7 +97,7 @@ void loop() {
       Serial.println( "\t\t\t\tArduino Buffers Overflow" );
       arduino_overflow = false;
     }
-    *
+    
     can_frame frame;
     bool has_data;
     cli(); has_data = cf_stream.get( frame ); sei();
@@ -103,5 +109,6 @@ void loop() {
       cli(); has_data = cf_stream.get( frame ); sei();
     }
   }
+  while(true){}
   delay(1);
 }
