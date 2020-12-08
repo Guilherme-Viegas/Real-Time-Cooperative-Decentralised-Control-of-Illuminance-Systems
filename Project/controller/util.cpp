@@ -33,3 +33,23 @@ void initInterrupt1(){
   interrupts();          // enable all interrupts
   
 }
+
+//Simple bubble sort algorithm for sorting addresses vector
+void swap(byte *xp, byte *yp)  
+{  
+    int temp = *xp;  
+    *xp = *yp;  
+    *yp = temp;  
+}  
+  
+// A function to implement bubble sort  
+void bubbleSort(byte arr[], int n)  
+{  
+    int i, j;  
+    for (i = 0; i < n-1; i++)      
+      
+    // Last i elements are already in place  
+    for (j = 0; j < n-i-1; j++)  
+        if (arr[j] > arr[j+1])  
+            swap(&arr[j], &arr[j+1]);  
+} 

@@ -12,5 +12,8 @@
 float boundPWM(float u);
 void initInterrupt1();
 ISR(TIMER1_COMPA_vect);
+void bubbleSort(byte arr[], int n);
+void swap(int *xp, int *yp);
+
 
 #endif

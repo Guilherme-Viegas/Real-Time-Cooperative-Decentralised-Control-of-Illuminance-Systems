@@ -29,7 +29,13 @@ int number_of_addresses = 0;
 int frames_arr_size = 0;
 can_frame *frames;
 
-byte message_types[] = {7,9};
+byte *serial_buffer;
+int serial_buff_size = 0;
+
+bool im_hub = false;
+
+enum msg_types {hello=0, olleh=1, start_calib=3};
+msg_types msg_to_send;
 
 float m;
 float b;
@@ -122,7 +128,7 @@ can_frame* readMsg(int *frames_arr_size) {
 
 
 void setup() {
-  Serial.begin(2000000);
+  Serial.begin(9600);
 
   int eeprom_addr = 0;
   EEPROM.get(eeprom_addr, my_address);
@@ -153,7 +159,6 @@ void setup() {
   pid.ldr.t_tau_down.setParametersABC( 15.402250,  -0.015674, 8.313158); // values computed in the python file
   
   delay(500);
-  writeMsg(0, message_types[0], my_address);
   Serial.println("Set up completed");
   
   
@@ -166,21 +171,11 @@ void setup() {
 void loop() {
   frames_arr_size = 0;
   frames = readMsg(&frames_arr_size);
-  /*Steps for connecting to grid:
-   * Sends 'hello' broadcast msg with eeprom address to canbus and enters state '2'
-   * "waits" 1s for incoming msgs with the other's addresses
-   * if(not receivesMsg): enters in state '3' (ready for calibration)
-   * else if(receivesMsg):
-   * - Saves multiple addresses that received in msgs on nodes_addresses vector
-   * - Enters state '3' (ready for calibration)
-   */
-   //If already on system
-  //If receives 'hello' msg via broadcast it sends it's address to that new node address received
-  //Saves the new address on vector (has to realloc it)
-
+  
   switch(my_state) {
     case booting:
-      writeMsg(0, message_types[0], my_address);
+      msg_to_send = hello;
+      writeMsg(0, msg_to_send, my_address);
       Serial.println("Booting Up - Sended HELLO msg");
       starting_time = micros();
       my_state = w8ing_msg;
@@ -191,12 +186,13 @@ void loop() {
         nodes_addresses[0] = 0;
         nodes_addresses[1] = my_address;
         number_of_addresses = 2;
+        bubbleSort(nodes_addresses, number_of_addresses);
         my_state = ready_for_calib;
       }
       //If I received response msg, then there are other nodes on the grid
       int num_of_responses = 0;
       for(int i=0; i<frames_arr_size; i++) {
-        if( (frames[i].data[0] == message_types[1]) and ( frames[i].can_id == my_address ) ) { //TODO: Explicitly read only responses directed to my address
+        if( (frames[i].data[0] == olleh) and ( frames[i].can_id == my_address ) ) { //TODO: Explicitly read only responses directed to my address
           num_of_responses += 1;
           nodes_addresses = (byte*)realloc(nodes_addresses, (2 + num_of_responses)*sizeof(byte)); // (2 + num_responses) because nodes_addresses[0] is for broadcast and nodes_addresses[1] is my addr
           nodes_addresses[num_of_responses + 1] = frames[i].data[1]; //So 1st received response goes to index 2 cause 0 and 1 is for broadcast and my address
@@ -206,6 +202,7 @@ void loop() {
         number_of_addresses = 2 + num_of_responses;
         nodes_addresses[0] = 0;
         nodes_addresses[1] = my_address;
+        bubbleSort(nodes_addresses, number_of_addresses);
         my_state = ready_for_calib;
       }
     case ready_for_calib:
@@ -217,10 +214,7 @@ void loop() {
   Serial.print(my_state);
   Serial.print(" - ");
   Serial.print(my_address);
-  Serial.print(" - ");
-  Serial.print(frames_arr_size);
-  Serial.print(" - ");
-  Serial.println(number_of_addresses);
+  Serial.println();
   for(int i=0; i<number_of_addresses; i++) {
     Serial.print(nodes_addresses[i]);
     Serial.print(" ");
@@ -228,9 +222,9 @@ void loop() {
   Serial.println();
   
 
-  //Check if received msg es from a new entering node...
+//Check messages received from the can-bus  
   for(int i=0; i<frames_arr_size; i++) {
-    if((frames[i].data[0] == message_types[0])) {
+    if((frames[i].data[0] == hello)) { //Check if received msg is from a new entering node...
       bool already_on_addresses = false;
       for(int j=0; j<number_of_addresses; j++) {
         if(frames[i].data[1] == nodes_addresses[j]) {
@@ -241,12 +235,35 @@ void loop() {
         number_of_addresses += 1;
         nodes_addresses = (byte*)realloc(nodes_addresses, number_of_addresses*sizeof(byte));
         nodes_addresses[number_of_addresses-1] = frames[i].data[1];
+        bubbleSort(nodes_addresses, number_of_addresses);
       }
-      //delay(1);
-      writeMsg(frames[i].data[1], message_types[1], my_address);
+      delay(1);
+      msg_to_send = olleh;
+      writeMsg(frames[i].data[1], msg_to_send, my_address);
     }
   }
-  
+
+//Check messages received from the Serial bus
+//Doing it in a while() for now, but surely not the best solution because it stops the code on the while
+//I'm doint it cause the serial messages are really small (4bytes)
+  while(Serial.available() > 0) { //If received message from RPI via Serial...
+    byte inByte = Serial.read();
+    serial_buff_size++;
+    serial_buffer = (byte*)realloc(serial_buffer, sizeof(byte)*serial_buff_size);
+    serial_buffer[serial_buff_size-1] = inByte;
+  }
+  if(serial_buff_size > 0) {
+    if(serial_buff_size == 3 and char(serial_buffer[0]) == 'R' and char(serial_buffer[1]) == 'P' and char(serial_buffer[2]) == 'i') {
+      //Then I received the msg from Rpi saying I'm the hub...so I send an ACK msg
+      Serial.write("ACK");
+      im_hub = true;
+    }
+
+    serial_buff_size = 0;
+    serial_buffer = (byte*)realloc(serial_buffer, sizeof(byte)*serial_buff_size);
+  }
+
+
 
   if (LOOP){
   
