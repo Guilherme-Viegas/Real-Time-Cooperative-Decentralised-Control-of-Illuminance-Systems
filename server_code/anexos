@@ -1,5 +1,6 @@
-#include "util.hpp"
+#define ASCII 8
 
+std::bitset<ASCII> ascii2Binary(char ch);
 
 /**
  * Compute the binary number from a deciaml number
@@ -26,5 +27,6 @@ std::bitset<ASCII> ascii2Binary(char ch)
 
     return bin;
 }
+
 
 

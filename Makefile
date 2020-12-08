@@ -4,7 +4,7 @@ CXX = g++
 #	Compiler Flags
 CXXFLAGS = -Wall -Werror -std=c++11 -g
 #	Compiler Libraries
-LIBS = #-lboost_system -pthread
+LIBS = -lboost_system -pthread
 #	Name of the Client
 CLIENT := client_exe
 #	Name of the Server
@@ -50,6 +50,7 @@ all: client server
 
 # creates objects and the executable
 client:
+	clear
 	@mkdir -p $(CLIOBJDIR)
 	@for f in $(CLIFILES) ;\
 	do \
@@ -58,6 +59,7 @@ client:
 	@$(CXX) $(CXXFLAGS) $(LIBS) $(CLIOBJ) -o $(CLIENT)
 
 server:
+	clear
 	@mkdir -p $(SERVOBJDIR)
 	@for f in $(SERVFILES) ;\
 	do \
@@ -109,7 +111,7 @@ run_n_client:
 		done
 
 # runs the server
-run_server:
+run: # run_server:
 		clear
 
 		@echo "       .~~.   .~~.                                                                   "
