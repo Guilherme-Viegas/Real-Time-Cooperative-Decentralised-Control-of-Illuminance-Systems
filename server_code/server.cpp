@@ -1,16 +1,34 @@
 #include "serial.hpp"
 
+#include <unistd.h>
+
+// create the stream to receive the console input
+boost::asio::streambuf stm_buff { 1024 };
+using ec = boost::system::error_code;
+using sd = boost::asio::posix::stream_descriptor;
+
+void start_read_input( sd *stm_desc ) {
+    async_read_until( *stm_desc, stm_buff, '\n' ,
+        [ stm_desc ](const ec & err, std::size_t len) {
+            std::cout << &stm_buff;// << std::endl;
+            start_read_input( stm_desc ); }
+    );
+}
+
 int main()
 {
 
     boost::asio::io_context io;
     boost::asio::serial_port s{io};
+    sd stm_desc { io, ::dup(STDIN_FILENO) };
     
     communications server( &s );
 
-    std::cout << "It was found " << (int)server.hasHub() << " desk"<< ((server.hasHub() > 1) ? "s" : "") << "!\n";
+    uint8_t numHubs = server.hasHub();
+    std::cout << "It was found " << (int)numHubs << " desk"<< ( (numHubs > 1) ? "s" : "") << "!\n";
 
     server.write_command();
+    start_read_input( &stm_desc );
     
     io.run();
 

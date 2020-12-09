@@ -46,7 +46,7 @@ communications::communications( boost::asio::serial_port *s)
     if(t_ec)   // problems with serial
     {
         std::cout << "Could not open serial port \n";
-        return -1;
+        return ;
     }  
         
     t_serial->set_option(boost::asio::serial_port_base::baud_rate{BAUD_RATE}, t_ec);
@@ -65,9 +65,9 @@ communications::~ communications()
 uint8_t communications::hasHub()
 {   
     // std::cout << "Waiting for the arduino's delay ...\n";
-    sleep(2);
+    // sleep(2);
     // https://stackoverflow.com/questions/39517133/write-some-vs-write-boost-asio - "Since you're only sending a little data, you don't save much time by returning before all the data's sent.(write_some)"
-    boost::asio::write( *t_serial, boost::asio::buffer("RPi"), t_ec );
+    boost::asio::write( *t_serial, boost::asio::buffer("RPiG"), t_ec );
     boost::asio::read( *t_serial, t_buf4, t_ec );   // expected "A<>:)"
 
     // gets answer
@@ -85,7 +85,7 @@ uint8_t communications::hasHub()
 
 void communications::write_command()
 {
-    boost::asio::write(*t_serial, boost::asio::buffer("gli"), t_ec );
+    boost::asio::write(*t_serial, boost::asio::buffer("RPiS"), t_ec );
     boost::asio::read( *t_serial, t_buf4, t_ec );
 
     char ch[BUFFER_SIZE];

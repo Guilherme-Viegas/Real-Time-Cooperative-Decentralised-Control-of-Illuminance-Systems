@@ -1,17 +1,19 @@
 #include "hub.hpp"
 
+
 /*
  * Head function, where it will distribute the instruction
  */
 void hub()
-{
+{   
+    char welcome[BUFFER_SIZE];
     Serial.readBytes(welcome, BUFFER_SIZE);
     
-    if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' )
+    if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[2] == 'G' )
       {
           greeting(-1);
       }
-    else if( welcome[0] == 'g' && welcome[1] == 'l' && welcome[2] == 'i' )
+    else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[2] == 'S' )
     {
         // Greeting
         float2bytes( 78.551 );

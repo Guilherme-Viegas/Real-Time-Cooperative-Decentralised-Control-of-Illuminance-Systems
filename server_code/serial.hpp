@@ -10,7 +10,7 @@
 #include <boost/asio.hpp>
 
 // Ports
-#define RPI_PORT "/dev/ttyACM0"
+#define RPI_PORT "/dev/ttyACM0" // dmesg
 #define MAC_PORT "/dev/tty.usbmodem14601" // ls /dev/tty.*
 #define BAUD_RATE 9600//230400
 #define ARDUINO_MESSAGE "Arduino"

@@ -137,6 +137,5 @@ clean:
 
 
 # cat -e -t -v Makefile
-# dmesg
 
 # for further reading: https://stackoverflow.com/questions/25362847/cpp-to-o-files-in-makefile
