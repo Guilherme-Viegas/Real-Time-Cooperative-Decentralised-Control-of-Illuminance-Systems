@@ -1,4 +1,5 @@
 #include "serial.hpp"
+#include "database.hpp"
 
 #include <unistd.h>
 
@@ -20,17 +21,21 @@ int main()
 
     boost::asio::io_context io;
     boost::asio::serial_port s{io};
-    sd stm_desc { io, ::dup(STDIN_FILENO) };
+    //sd stm_desc { io, ::dup(STDIN_FILENO) };
     
-    communications server( &s );
+    //communications server{ &s };
 
-    uint8_t numHubs = server.hasHub();
-    std::cout << "It was found " << (int)numHubs << " desk"<< ( (numHubs > 1) ? "s" : "") << "!\n";
+    //uint8_t numLamps = server.hasHub();
+    //std::cout << "It was found " << (int)numLamps << " desk"<< ( (numLamps > 1) ? "s" : "") << "!\n";
 
-    server.write_command();
-    start_read_input( &stm_desc );
+    //server.write_command();
+    //start_read_input( &stm_desc );
+
+    office theOffice { 2 };
+
+
     
-    io.run();
+    //io.run();
 
     return 0;
 }

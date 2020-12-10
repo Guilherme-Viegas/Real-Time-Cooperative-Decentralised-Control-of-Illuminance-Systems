@@ -139,3 +139,12 @@ clean:
 # cat -e -t -v Makefile
 
 # for further reading: https://stackoverflow.com/questions/25362847/cpp-to-o-files-in-makefile
+
+
+# https://medium.com/@dr_rost/detect-memory-leaks-on-macos-4cf257529aa
+EXE := ./$(SERVER)
+memory:
+		@leaks -fullContent -atExit -- $(EXE) | grep LEAK
+
+memory_all:
+		@leaks -fullContent -atExit -- $(EXE)

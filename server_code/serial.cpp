@@ -53,7 +53,7 @@ communications::communications( boost::asio::serial_port *s)
 }
 
 
-communications::~ communications()
+communications::~communications()
 {   
     std::cout << "This is the final message of the Serial communication :(\n";
     t_serial->close();
