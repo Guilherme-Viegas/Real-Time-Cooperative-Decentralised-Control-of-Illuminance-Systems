@@ -6,10 +6,9 @@
 ***/
 #include <EEPROM.h>
 
-byte addr = 3;
-float m = -0.668;
-float b = 4.65353;
-
+byte addr = 2;
+float m = -0.576;
+float b = 4.1577;
 
 void setup() {
   float f;
@@ -27,7 +26,6 @@ void setup() {
   eeAddress += sizeof(float); //Move address to the next byte after float 'f'.
   EEPROM.put(eeAddress, b);
   eeAddress += sizeof(float); //Move address to the next byte after float 'f'.
-  
 
 }
 

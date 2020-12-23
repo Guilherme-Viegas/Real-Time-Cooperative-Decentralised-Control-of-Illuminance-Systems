@@ -1,6 +1,7 @@
 #include <SPI.h>
 #include <mcp2515.h>
 
+
 class can_frame_stream {
     //10 slots buffer - increase if needed
     static const int buffsize = 10;
