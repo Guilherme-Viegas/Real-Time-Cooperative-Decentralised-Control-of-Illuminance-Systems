@@ -40,20 +40,25 @@ int ready_number=0;
 /*------------------------|
  * TYPE OF MESSAGES       |
 --------------------------|*/
-enum msg_types {hello=0, olleh=1, Ready=2, read_value=3, my_read = 4,turnOn_led=5, offset_finish=6};
+enum msg_types {hello=0, olleh=1, Ready=2, read_value=3, my_read = 4,turnOn_led=5, turnOff_led=6, offset_finish=7, ACK=8};
 msg_types msg_to_send;
-
+int ack_number=0;
 /*-------------------------------------------
  * VARIABLES FOR THE CALIBRATION            |
 *-------------------------------------------*/
-enum calibration_machine {enter=0, turn_led=1, read_light = 2, w8ting_nodes=3, computing_offset = 4,compute_k = 5, calibrated = 6};
+enum calibration_machine {enter=0, turn_led=1, read_light = 2, w8ting_ack=3,
+                          computing_offset = 4,compute_k = 5, calibrated = 6};
 calibration_machine calib_machine = enter;
+calibration_machine prev_calib_machine = enter;
 
 //number of offsets recieved
 int n_offsets = 0;
 //flag to know if the offset is done
 bool offset_done = false;
 float my_reading = 0.0;
+float* offset;
+float offs = 0;
+bool master = false;
 
 /*--------------------------------------------|
  * CAN BUS COMMUNICATION USEFUL VARIABLES     |
@@ -152,9 +157,9 @@ MCP2515::ERROR write(uint32_t id, uint32_t val){
   //send data
   return mcp2515.sendMessage(&frame);
 }
-/*
- * Message with no values only msg_type and sender_address
-*/
+/*---------------------------------------------------------|
+ * Message with no values only msg_type and sender_address |
+-----------------------------------------------------------|*/
 void writeMsg(int id, byte msg_type, byte sender_address, float value = 0){
   if(value){
     //write message with values
@@ -218,7 +223,7 @@ void booting_function(int msg_to_send){
   my_state = w8ing_msg;
 }
 state_machine waiting_function(int msg_to_send, int starting_time, int *num_of_responses){
-  if(micros() - starting_time >= 10000000){
+  if(micros() - starting_time >= 2000000){
     Serial.println("Entrei 1if");
     //Time has passed, I'm the only node on grid and I'm ready for calib
     nodes_addresses = (byte*)malloc(2*sizeof(byte)); //Because we will be address '1', cause '0' is for broadcast
@@ -291,7 +296,10 @@ void setup() {
   
   //pid.setReferenceLux( 30 ); // sets the minimum value in the led ( zero instant )
   //if(pid.has_feedback()){initInterrupt1();}
-  
+  nodes_addresses = (byte*)malloc(2*sizeof(byte)); //Because we will be address '1', cause '0' is for broadcast
+  nodes_addresses[0] = 0;
+  nodes_addresses[1] = my_address;
+  number_of_addresses = 2;  
 }
 /*
  * FUNCTION to compute K such as luminance  = K*pwm + offset
@@ -299,73 +307,61 @@ void setup() {
 void initCalibration(float **offset){
   //array with the sorted addresses [0, 1, 2, 3, ...]
   
-  bool master = false;
   bool know_position = false;
   int my_position = -1;
-  
-  //make a master
-  if(my_address == nodes_addresses[1])
-    master = true;
-  Serial.println("NUMBER OF ADDRESS: " + String(number_of_addresses));
   switch(calib_machine){
     case enter:{
-      calib_machine = computing_offset;
-      //send the offset value in the box
-      my_reading = pid.led.getBrightness();
-      msg_to_send = my_read;
-      Serial.println("Address " + String(my_address) + "READING: " + String(my_reading));
-      writeMsg(0, msg_to_send, my_address, my_reading);
+      Serial.println("CALIBRATION BEGINS");
+      //broadcast message to turn off leds
+      if(master){
+        msg_to_send = turnOff_led;
+        writeMsg(0, msg_to_send, my_address);
+      }
+      prev_calib_machine = calib_machine;
+      calib_machine = w8ting_ack;
+    }break;
+    case w8ting_ack:{
+      if(!master){
+        for(int i=0; i < frames_arr_size; i++){
+           if(frames[i].data[0] == turnOff_led){
+              pid.led.setBrightness(0);
+              msg_to_send = ACK;
+              writeMsg(frames[i].data[1], msg_to_send, my_address);
+              prev_calib_machine = calib_machine;
+              calib_machine = computing_offset;
+           }
+           else if(frames[i].data[0] == read_value && prev_calib_machine == computing_offset){
+              msg_to_send = ACK;
+              writeMsg(frames[i].data[1], msg_to_send, my_address);
+              prev_calib_machine = calib_machine;
+              calib_machine = compute_k;
+           }
+        }
+      }
+      else{
+        if(ack_number == number_of_addresses-2 && prev_calib_machine == enter){
+          ack_number=0; //reset
+          prev_calib_machine = calib_machine;
+          calib_machine = computing_offset;
+        }
+        else if(ack_number == number_of_addresses-2 && prev_calib_machine == computing_offset){
+          ack_number=0; //reset
+          prev_calib_machine = calib_machine;
+          //TODO
+          calib_machine = compute_k;
+        }
+      } 
     }break;
     case computing_offset:{
       Serial.println("\n-----------COMPUTING OFFSET---------\n");
-      if(master){
-        Serial.println("IM MASTER");
-        Serial.println("READING ON COMPUTING: " + String(my_reading));
-        
-        *offset[0] = my_reading;
-        for(int i =0; i < frames_arr_size; i++){
-          Serial.println("TIPO DE MENSAGEM RECEBIDO: " + String(frames[i].data[0]));
-          if(frames[i].data[0] == my_read){
-            Serial.println("ENTREI");
-          
-            //get position of address array
-            for(int j=0; j < number_of_addresses; j++){
-              if(frames[i].data[1] == nodes_addresses[j]){
-                *offset[j-1] = getValueMsg(frames[i]);
-                Serial.println("j: " + String(j) + "--" + String(*offset[j-1]));
-                n_offsets++;
-              }
-            }
-          }
-        }
-      }
-      if(!master){
-        Serial.println("I'M NOT MASTER");
-        for(int i =0; i < frames_arr_size; i++){
-          Serial.println("Message Type: " + String(frames[i].data[0]));
-          if(frames[i].data[0] == offset_finish){
-            Serial.println("OFFSET FINISH");
-            calib_machine = calibrated;
-            break;
-          }
-        }
-      }
-      if(n_offsets == number_of_addresses-2){
-        calib_machine = calibrated;
-        msg_to_send = offset_finish;
-        writeMsg(0, msg_to_send, my_address);
-      }
+      //reading offset
+      offs = pid.led.getBrightness();
+      Serial.println("ADD-" + String(my_address) + " " + "MY OFFSET = " + String(offs));
+      prev_calib_machine = calib_machine;
+      calib_machine = w8ting_ack;
     }break;
-    case calibrated:{
-      if(master){
-        Serial.println("OFFSET COMPUTED");
-        for(int i=0; i < number_of_addresses-1; i++){
-          Serial.print(*offset[i]);
-          Serial.print("-");   
-        }
-        Serial.println();
-      }
-        offset_done=true; 
+    case compute_k:{
+      Serial.println("COMPUTE_K");
     }break;
     default:{
     }break;
@@ -388,25 +384,19 @@ float getValueMsg(can_frame frame){
 void loop() {
   frames_arr_size = 0;
   frames = readMsg(&frames_arr_size);
-  float* offset;
   switch(my_state){
     case booting:{
       booting_function(msg_to_send);
+      starting_time = micros();
     }break;
     case w8ing_msg:{
       int num_of_responses = 0;
-      starting_time = micros();
+      
       //my_state = waiting_function(msg_to_send, starting_time, &num_of_responses);
-      if(micros() - starting_time >= 10000000){
+      if(micros() - starting_time >= 2000000){
         Serial.println("Entrei 1if");
         //Time has passed, I'm the only node on grid and I'm ready for calib
-        nodes_addresses = (byte*)malloc(2*sizeof(byte)); //Because we will be address '1', cause '0' is for broadcast
-        nodes_addresses[0] = 0;
-        nodes_addresses[1] = my_address;
-        number_of_addresses = 2;
         my_state = ready_for_calib;
-        msg_to_send = Ready;
-        smallMsg(0, msg_to_send, my_address);
       }
       //If I received response msg, then there are other nodes on the grid
       for(int i=0; i < frames_arr_size; i++) {
@@ -425,7 +415,6 @@ void loop() {
         nodes_addresses[0] = 0;
         nodes_addresses[1] = my_address;
         bubbleSort(nodes_addresses, number_of_addresses);
-        
         //send broadcast READY_CALIB
         msg_to_send = Ready;
         smallMsg(0, msg_to_send, my_address);
@@ -433,57 +422,54 @@ void loop() {
       }
       if(my_state==ready_for_calib){
         Serial.println("N Responses after w8: " + String(number_of_addresses));
-        if(number_of_addresses>0){
-          for(int i=0; i<number_of_addresses; i++) {
-            Serial.print(nodes_addresses[i]);
-            Serial.print(" ");
-          }
-          Serial.println();
-        }
       }
     }break; 
     case ready_for_calib:{
-      //send a Ready broadcast message
       for(int i=0; i < frames_arr_size; i++){
-        if(frames[i].data[0] == Ready){
+        if(frames[i].data[0] == Ready && frames[i].can_id == my_address){
           ready_number+=1;
         }
       }
       if(ready_number==number_of_addresses-2){
+        if(nodes_addresses[1] == my_address)
+          master = true;
         my_state=calibration;
         ready_number=0;
-        offset = (float*)calloc((number_of_addresses-1), sizeof(float));
-        Serial.println("OFFSET CALLOC: " + String(offset[0]));
-        Serial.println("CALIBRATION BABY");
       }
     }break;
     case calibration:{
-      while(true){}
+      //while(true){}
       initCalibration(&offset);
-      while(offset_done){}
+      //while(offset_done){}
     }break;
     default:{
       Serial.println("DEFAULT");
     }break;
   }
     
-  /*Serial.print(my_state);
+  Serial.print("MY STATE: " + String(my_state));
   Serial.print(" - ");
   Serial.print(my_address);
-  Serial.println();*/
+  Serial.print("RN " + String(ready_number));
+  Serial.print(" - ");
+  for(int i=0; i<number_of_addresses; i++) {
+    Serial.print(nodes_addresses[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
   
 
   //Check messages received from the can-bus  
   for(int i=0; i < frames_arr_size; i++) {
-    if((frames[i].data[0] == hello)) { //Check if received msg is from a new entering node...
+    if((frames[i].data[0] == hello) && my_state != w8ing_msg) { //Check if received msg is from a new entering node...
       bool already_on_addresses = false;
+      Serial.println("Recebi HELLO da Address: " + String(frames[i].data[1]));
       for(int j=0; j < number_of_addresses; j++) {
         if(frames[i].data[1] == nodes_addresses[j]) {
           already_on_addresses = true;
         }
       }
       if(already_on_addresses == false) { //If this address have never been to my addresse's vector
-        Serial.println("Recebi HELLO da Address: " + String(frames[i].data[1]));
         number_of_addresses += 1;
         nodes_addresses = (byte*)realloc(nodes_addresses, number_of_addresses*sizeof(byte));
         nodes_addresses[number_of_addresses-1] = frames[i].data[1];
@@ -494,6 +480,23 @@ void loop() {
       Serial.println("PARA ARDUINO: " + String(frames[i].data[1]));
       msg_to_send = olleh;
       smallMsg(frames[i].data[1], msg_to_send, my_address);
+    }
+    //new node entered and said Ready
+    else if((frames[i].data[0] == Ready) && frames[i].can_id == 0 && my_state != w8ing_msg){
+      Serial.println("RECEBI READY");
+      msg_to_send = Ready;
+      my_state = ready_for_calib;
+      ready_number += 1;
+      for(int i=1; i<number_of_addresses;i++){
+        if(nodes_addresses[i] != my_address){
+          //send Ready messages for everybody
+          writeMsg(nodes_addresses[i], msg_to_send, my_address);  
+        }
+      }
+    }
+    else if((frames[i].data[0] == ACK) && frames[i].can_id == my_address){
+      //ack number
+      ack_number += 1;
     }
   }
   
