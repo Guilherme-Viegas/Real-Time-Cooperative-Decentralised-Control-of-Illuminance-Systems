@@ -9,12 +9,15 @@
 #include <string>
 #include <boost/asio.hpp>
 
+#include "database.hpp"
+
 // Ports
 #define RPI_PORT "/dev/ttyACM0" // dmesg
-#define MAC_PORT "/dev/tty.usbmodem14601" // ls /dev/tty.*
-#define BAUD_RATE 9600//230400
+#define MAC_PORT "/dev/tty.usbmodem143101" // ls /dev/tty.*
+#define BAUD_RATE 230400//230400
 #define ARDUINO_MESSAGE "Arduino"
 #define BUFFER_SIZE 4
+
 
 /*
  * Controls the Serial comunication
@@ -24,26 +27,27 @@ class communications
 
 private:    // this things are private
 
-    boost::asio::serial_port* t_serial ;
+    // boost::asio::serial_port *t_serial = nullptr;
+    std::unique_ptr<boost::asio::serial_port> t_serial;
 
-    boost::asio::streambuf t_buf4{BUFFER_SIZE};
     boost::system::error_code t_ec;
-
-    uint8_t t_numLamps = 0;
+    boost::asio::streambuf t_buf4{BUFFER_SIZE};
+    uint8_t t_num_lamps = 0;
+    bool t_coms_available = true;
 
     // functions
-    float bytes2float(uint16_t mostSignificativeBit, uint8_t lessSignificativeBit);
 
     
 public:     // this things are public
 
-    communications( boost::asio::serial_port *s );// constructor
+
+    communications( boost::asio::io_context *io );// constructor
     ~communications();  // destructor
 
-    uint8_t hasHub();
+    uint8_t has_hub();
     void write_command();
-    //void write_handler();
-    //void flush();
+    void read_async_command( office *the_office );
+    void set_coms_not_available(){ t_coms_available = false; }
 
 };
 

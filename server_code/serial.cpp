@@ -2,51 +2,20 @@
 
 
 
-/*
-boost::asio::io_context io;
-boost::asio::serial_port sp{io};
-
-boost::asio::streambuf buf_1{1}; //read buffer
-boost::asio::streambuf buf_trash; //read buffer
-
-
-//forward declaration of write_handler to timer_handler
-void write_handler(const boost::system::error_code &ec, size_t nbytes);
-void timer_handler(const boost::system::error_code &ec)
+// communications::communications( boost::asio::serial_port *s)
+communications::communications( boost::asio::io_context *io )
 {
-    //timer expired – launch new write operation
-    boost::asio::async_write(sp, boost::asio::buffer("RPi"), write_handler);
-    std::cout << "Hello RPi\n";
-}
+    if(DEBUG) std::cout << "This is the initial message of the Serial communication :)\n"; // welcome message
 
-void write_handler(const boost::system::error_code &ec, size_t nbytes)
-{
-    //tim.expires_after(boost::asio::chrono::seconds{2});
-    std::cout << "IS there any connection?\n";
-    //tim.async_wait(timer_handler);
-}
+    t_serial = std::unique_ptr<boost::asio::serial_port> ( new boost::asio::serial_port {*io} );
 
-void read_handler(const boost::system::error_code &ec, size_t nbytes)
-{
-    char ch = buf_1.sgetc();
-    buf_1.consume(1);
-    std::cout << (int)(uint8_t)ch <<  std::endl;
-    //ascii2Binary(ch);
-    async_read(sp, buf_1, read_handler);
-}
-*/
-
-communications::communications( boost::asio::serial_port *s)
-{
-    std::cout << "This is the initial message of the Serial communication :)\n"; // welcome message
-
-    t_serial = s;
     t_serial->open( MAC_PORT, t_ec); //connect to port
 
     if(t_ec)   // problems with serial
     {
-        std::cout << "Could not open serial port \n";
-        return ;
+        if(DEBUG) std::cout << t_ec << " Could not open serial port \n";
+        set_coms_not_available();
+        return;
     }  
         
     t_serial->set_option(boost::asio::serial_port_base::baud_rate{BAUD_RATE}, t_ec);
@@ -55,64 +24,80 @@ communications::communications( boost::asio::serial_port *s)
 
 communications::~communications()
 {   
-    std::cout << "This is the final message of the Serial communication :(\n";
+    if(DEBUG) std::cout << "This is the final message of the Serial communication :(\n";
     t_serial->close();
 }
 
 /*
 *   Connects to a Arduino and returns the number of desks
 */
-uint8_t communications::hasHub()
+uint8_t communications::has_hub()
 {   
     // std::cout << "Waiting for the arduino's delay ...\n";
     // sleep(2);
     // https://stackoverflow.com/questions/39517133/write-some-vs-write-boost-asio - "Since you're only sending a little data, you don't save much time by returning before all the data's sent.(write_some)"
-    boost::asio::write( *t_serial, boost::asio::buffer("RPiG"), t_ec );
+    boost::asio::write( *t_serial, boost::asio::buffer("+RPiG"), t_ec );
     boost::asio::read( *t_serial, t_buf4, t_ec );   // expected "A<>:)"
 
     // gets answer
-    char ch[BUFFER_SIZE] {};
-    t_buf4.sgetn(ch, BUFFER_SIZE);
+    char tmp[1] {};
 
-    //std::cout << ch[0] << (int)(uint8_t)ch[1] << ch[2] << ch[3] << "\t"<< t_ec << std::endl;
+    do  // waits for the first 'A' (sent by an Arduino, if not it was just luck)
+    {
+        t_buf4.sgetn(tmp, 1);
+    } while ( std::strncmp(tmp, "A", 1) != 0x0 );
+
+    char ch[BUFFER_SIZE] {};
+    t_buf4.sgetn(ch, BUFFER_SIZE-1);
+
+    for(int i = BUFFER_SIZE-1; i>0; i--)
+    {
+        ch[i] = ch[i-1];
+    }
+    ch[0] = tmp[0];
+
+    if(DEBUG) std::cout << ch[0] << (int)(uint8_t)ch[1] << ch[2] << ch[3] << "\t"<< t_ec << std::endl;
+    // std::cout << (int)(uint8_t)ch[0] << " " << (int)(uint8_t)ch[1] << " " << (int)(uint8_t)ch[2] << " " << (int)(uint8_t)ch[3] << "\t"<< t_ec << std::endl;
+
 
     if( ch[0] == 'A' && ch[2] == ':' && ch[3] == ')')
     {
-        t_numLamps =  (uint8_t)ch[1];
+        t_num_lamps =  (uint8_t)ch[1];
     }
-    return t_numLamps;
+
+     if(DEBUG) std::cout << "It was found " << (int)t_num_lamps << " desk"<< ( (t_num_lamps != 1) ? "s" : "") << "!\n";
+    return t_num_lamps;
 }
 
+/*
+*   Ask to the Arduino the initial states
+*/
 void communications::write_command()
 {
-    boost::asio::write(*t_serial, boost::asio::buffer("RPiS"), t_ec );
-    boost::asio::read( *t_serial, t_buf4, t_ec );
-
-    char ch[BUFFER_SIZE];
-    t_buf4.sgetn(ch, BUFFER_SIZE);
-
-    float num = bytes2float( (uint8_t)ch[2], (uint8_t)ch[3] );
-
-    std::cout << (int)(uint8_t)ch[0] << " "
-              << (int)(uint8_t)ch[1] << "\t -> \t"
-              << bytes2float( (uint8_t)ch[0], (uint8_t)ch[1] ) << std::endl
-              << (int)(uint8_t)ch[2] << " "
-              << (int)(uint8_t)ch[3] << "\t -> \t"
-              << num << std::endl;
+    boost::asio::write( *t_serial, boost::asio::buffer("+RPiS"), t_ec );
+    // boost::asio::read( *t_serial, t_buf4, t_ec );
               
 }
 
-float communications::bytes2float(uint16_t mostSignificativeBit, uint8_t lessSignificativeBit)
+/*
+*   Reads Arduino's commands
+*/
+void communications::read_async_command( office *the_office )
 {
-    float decimalNumber = lessSignificativeBit & 0xF;   // gets 4 less significatives bits
-    float integerNumber = (mostSignificativeBit << 4) + ((lessSignificativeBit & 0xF0) >> 4);   // gets 12 most significatives bits
+    if(!t_coms_available) return;
 
-    if(decimalNumber == 15 )    // invalid read detected
-    {
-        std::cout << "INVALID NUMBER - number must be positive\t";
-        decimalNumber = 0;
-    }
-    
-    //std::cout << "integer " << integerNumber << " decimal " <<decimalNumber << std::endl;
-    return integerNumber + decimalNumber*0.1;
+    async_read( *t_serial, t_buf4, [ this, the_office ]( const boost::system::error_code &t_ec, std::size_t len)
+        {  
+            char ch[BUFFER_SIZE] {};
+            t_buf4.sgetn(ch, BUFFER_SIZE);
+
+            if(!t_ec)
+            {
+                // the_office->get_state();
+                the_office->updates_database( ch, BUFFER_SIZE );
+                read_async_command( the_office );
+
+            }
+        }
+    );
 }

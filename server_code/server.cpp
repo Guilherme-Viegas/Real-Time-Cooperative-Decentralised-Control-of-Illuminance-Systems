@@ -1,7 +1,11 @@
 #include "serial.hpp"
-#include "database.hpp"
 
 #include <unistd.h>
+
+#define EXIT_MESSAGE "exit"
+
+// global variable to control whether the server runs or not
+bool stop_server = false;
 
 // create the stream to receive the console input
 boost::asio::streambuf stm_buff { 1024 };
@@ -11,47 +15,49 @@ using sd = boost::asio::posix::stream_descriptor;
 void start_read_input( sd *stm_desc ) {
     async_read_until( *stm_desc, stm_buff, '\n' ,
         [ stm_desc ](const ec & err, std::size_t len) {
-            std::cout << &stm_buff;// << std::endl;
-            start_read_input( stm_desc ); }
+
+            int size = stm_buff.size();
+            char command[] {};
+
+            stm_buff.sgetn(command , size-1);
+            stm_buff.consume(size);
+
+            if( !err && std::string(command).compare( EXIT_MESSAGE ) )
+            {   
+                start_read_input( stm_desc );
+            }
+            else
+            {
+                std::cout << "Async terminal read off\n";
+            }
+            
+        }
     );
 }
 
+
 int main()
-{
-
+{   
+    std::signal(SIGINT, [ ](int sig){ std::cout << "\t Querias batinhas com enguias ...\n"; stop_server=true; } );
+    
     boost::asio::io_context io;
-    boost::asio::serial_port s{io};
-    //sd stm_desc { io, ::dup(STDIN_FILENO) };
-    
-    //communications server{ &s };
+    sd stm_desc { io, ::dup(STDIN_FILENO) };
 
-    //uint8_t numLamps = server.hasHub();
-    //std::cout << "It was found " << (int)numLamps << " desk"<< ( (numLamps > 1) ? "s" : "") << "!\n";
+    communications the_serial{ &io };
 
-    //server.write_command();
-    //start_read_input( &stm_desc );
+    uint8_t num_lamps = the_serial.has_hub();
+    if( num_lamps < 0 ) return 0;
 
-    office theOffice { 2 };
+    office the_office { num_lamps } ;
 
+    the_serial.write_command();
+    the_serial.read_async_command( &the_office );
 
-    
-    //io.run();
+    start_read_input( &stm_desc ) ;
+
+    // io.run();
+    while( !stop_server ) io.poll_one(); //https://www.boost.org/doc/libs/1_66_0/doc/html/boost_asio/reference/io_service.html
 
     return 0;
+ 
 }
-
-/*
-    boost::system::error_code ec;
-    sp.open( MAC_PORT, ec); //connect to port
-    if (ec)
-        std::cout << "Could not open serial port \n";
-    sp.set_option(boost::asio::serial_port_base::baud_rate{BAUD_RATE}, ec);
-
-    //program timer for write operations
-    tim.expires_after(boost::asio::chrono::seconds{4});
-    tim.async_wait(timer_handler);
-    //program chain of read operations
-    async_read(sp, buf_1, read_handler);
-    io.run(); //get things rolling
-    std::cout << "Last line of the code - serve\n";
-*/

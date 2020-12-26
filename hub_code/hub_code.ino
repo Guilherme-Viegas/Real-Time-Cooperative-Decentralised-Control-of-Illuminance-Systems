@@ -1,15 +1,15 @@
 #include "hub.hpp"
 
 void setup() {
-  Serial.begin(9600); // opens serial port, sets data rate to 57600 baud
+  Serial.begin(230400); // opens serial port, sets data rate to 57600 baud
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
-  Serial.flush();
+
 }
 
 void loop() {
 
-  if(Serial.available()){ hub(); }
+  if( Serial.available() ){ hub(); }
 
     
 }
