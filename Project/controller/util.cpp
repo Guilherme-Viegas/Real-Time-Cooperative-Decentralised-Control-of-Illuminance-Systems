@@ -53,3 +53,12 @@ void bubbleSort(byte arr[], int n)
         if (arr[j] > arr[j+1])  
             swap(&arr[j], &arr[j+1]);  
 } 
+
+byte retrieve_index(byte *vector, int vect_size, byte value) {
+  for(byte i = 0; i < vect_size; i++ ) {
+    if(vector[i] == value) {
+      return i;
+    }
+  }
+  return -1;
+}

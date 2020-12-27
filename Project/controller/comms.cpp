@@ -1,6 +1,6 @@
 #include "comms.h"
 
-byte* float2bytes(float fnum)
+byte* convertFloat2Bytes(float fnum)
 {   
     // the maxium admissive value is 4095.94(9)
     fnum = fnum < pow(2,12)-0.05 ? fnum : pow(2,12)-1+0.9;  // 2^12-1 == 4095, 12 bits representation + 4bits to decimal representation(0.1 -> 0.9)

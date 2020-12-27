@@ -168,7 +168,6 @@ void Tau::setParametersABC( float A, float B, float C ){
   if( C >= 0 ){ t_c = C; }else{ t_c = -1.0; }
 
   t_isDefine = ( t_a != -1.0 ) and ( t_b != 1.0 ) and ( t_c != -1.0 );
-  if(t_isDefine){ Serial.println("The tau parameters are set."); }
 }
 
 /*

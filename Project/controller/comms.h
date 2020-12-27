@@ -3,7 +3,7 @@
 
 #include <mcp2515.h>
 
-byte* float2bytes(float fnum);
+byte* convertFloat2Bytes(float fnum);
 float bytes2float(byte * myBytes);
 
 
