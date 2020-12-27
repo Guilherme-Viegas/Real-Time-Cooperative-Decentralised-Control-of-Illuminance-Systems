@@ -6,7 +6,7 @@
 #include <boost/asio.hpp>
 #include "circularbuffer.hpp"
 
-#define N_POINTS_MINUTE 6000
+#define N_POINTS_MINUTE 600
 
 /*
  * Represents the lamp-desk
@@ -24,7 +24,7 @@ public:     // this things are public
     float t_occupied_value = -1.0;
     float t_unoccupied_value = -2.0;
     circular_array<float> t_lumminace{ N_POINTS_MINUTE };
-    circular_array<float> t_duty_cile{ N_POINTS_MINUTE };
+    circular_array<float> t_duty_cicle{ N_POINTS_MINUTE };
 
     // functions
     lamp( int address );

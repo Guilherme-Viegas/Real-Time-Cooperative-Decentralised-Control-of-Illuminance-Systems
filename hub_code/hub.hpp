@@ -7,7 +7,7 @@
 
 void float_2_bytes(float fnum);
 void greeting(int numLamps);
-void hub();
+bool hub();
 void send_time();
 
 

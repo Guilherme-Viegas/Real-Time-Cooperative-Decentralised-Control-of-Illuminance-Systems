@@ -32,7 +32,7 @@ private:    // this things are private
 
     boost::system::error_code t_ec;
     boost::asio::streambuf t_buf4{BUFFER_SIZE};
-    uint8_t t_num_lamps = 0;
+    uint8_t t_num_lamps = -1;
     bool t_coms_available = true;
 
     // functions

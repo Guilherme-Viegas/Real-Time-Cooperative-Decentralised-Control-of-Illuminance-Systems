@@ -4,7 +4,7 @@
 /*
  * Head function, where it will distribute the instruction
  */
-void hub()
+bool hub()
 {   
 
     int temp = Serial.read();
@@ -16,18 +16,22 @@ void hub()
     
     char welcome[BUFFER_SIZE];
     Serial.readBytes(welcome, BUFFER_SIZE);
-    const int arduinos = 7;
+    const int arduinos = 1;
 
     if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'G' )
-      {
+    {
           greeting(arduinos);
-      }
+    }
+    else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'E' ) // last message
+    {
+          return false;
+    }
     else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'S' )
     {   
 
         send_time();
         
-        bool state[arduinos] = {true, false, true, false, true, false, true};
+        bool state[arduinos] = {true};
         for(int a=0; a<arduinos; a++)
         {
           Serial.write("o");
@@ -36,7 +40,7 @@ void hub()
           Serial.write('*');
         }
 
-        float lower_bound_occupied[arduinos] = {50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0};
+        float lower_bound_occupied[arduinos] = {3.0};
         for(int a=0; a<arduinos; a++)
         {
           Serial.write("O");
@@ -44,13 +48,15 @@ void hub()
           float_2_bytes(lower_bound_occupied[a]);
         }
 
-        float lower_bound_unoccupied[arduinos] = {15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0};
+        float lower_bound_unoccupied[arduinos] = {1.0};
         for(int a=0; a<arduinos; a++)
         {
           Serial.write("U");
           Serial.write(a+1);
           float_2_bytes(lower_bound_unoccupied[a]);
         }
+
+        return true;
         
     }
     else
@@ -64,6 +70,8 @@ void hub()
         Serial.write(welcome[2]);
         Serial.write(welcome[3]);
     }
+    
+    return false;
 }
 
 /*

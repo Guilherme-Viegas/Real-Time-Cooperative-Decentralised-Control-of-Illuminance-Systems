@@ -46,7 +46,11 @@ int main()
     communications the_serial{ &io };
 
     uint8_t num_lamps = the_serial.has_hub();
-    if( num_lamps < 0 ) return 0;
+    if( num_lamps < 0 )
+    {
+        stop_server = true;
+        return 0;
+    }
 
     office the_office { num_lamps } ;
 

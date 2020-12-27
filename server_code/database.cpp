@@ -9,7 +9,7 @@ office::office( uint8_t num_lamps ) : t_num_lamps(num_lamps)
 
     for( int l=0; l<t_num_lamps; l++)    // for each lamp will create one struct 
     {
-        t_lamps_array[l] = new lamp { l+1 };;     // stores the address of the new lamp in the array of pointers to lamp object  
+        t_lamps_array[l] = new lamp { l+1 };   // stores the address of the new lamp in the array of pointers to lamp object  
     }
 }
 
@@ -26,21 +26,25 @@ office::~office()
 void office::updates_database( char command[], uint8_t size )
 {   
     float value = 0.0;
+    static bool first = true;
 
     switch (command[0])
     {
     case 't':
+    {
         t_time_since_restart = (double)(command[1]<<12) + bytes_2_float(command[2], command[3]);
         if(DEBUG) std::cout<< "Time since last restart: " << t_time_since_restart << " segundos.\n";
         break;
-    
+    }
     case 'o':
+    {
         t_lamps_array[command[1]-1]->t_state = command[2];   // check if command[3] == '*'
 
         if(DEBUG) std::cout<< "The state was step to: " << ( t_lamps_array[command[1]-1]->t_state ? "occupied" : "unoccupied") << "\n";
         break;
-    
+    }
     case 'O':
+    {
         value = bytes_2_float(command[2], command[3]);
         if( value < t_lamps_array[command[1]-1]->t_unoccupied_value )
         {
@@ -53,8 +57,9 @@ void office::updates_database( char command[], uint8_t size )
     
         if(DEBUG) std::cout<< "The occupied value is " << t_lamps_array[command[1]-1]->t_occupied_value << "\n";
         break;
-    
+    }
     case 'U':
+    {
         value = bytes_2_float(command[2], command[3]);
         if( value > t_lamps_array[command[1]-1]->t_occupied_value )
         {
@@ -67,11 +72,46 @@ void office::updates_database( char command[], uint8_t size )
 
         if(DEBUG) std::cout<< "The unoccupied value is " << t_lamps_array[command[1]-1]->t_unoccupied_value << "\n";
         break;
-    
-    default:
+    }
+    case 's':
+    {
+        value = bytes_2_float(command[2], command[3]);
+        t_lamps_array[command[1]-1]->t_lumminace.insert_newest( value );
+        std::cout << "id: " << (int)(uint8_t)command[1] << "\t\tlux: " << (t_lamps_array[command[1]-1]->t_lumminace).get_newest();
+
+        value = bytes_2_float(command[4], command[5]);
+        t_lamps_array[command[1]-1]->t_duty_cicle.insert_newest( value );
+
+        std::cout << "\tdc: " << t_lamps_array[command[1]-1]->t_duty_cicle.get_newest() << std::endl;
+        
+
+        // ***********TESTE para ver se ele imprime o last minute***********
+
+         std::thread last_minute(
+            [&](){
+
+                if( t_lamps_array[command[1]-1]->t_lumminace.is_full() && first ){
+                            
+                    std::unique_ptr<float[]> array = t_lamps_array[command[1]-1]->t_lumminace.get_all();
+
+                    for(int i = 0; i < N_POINTS_MINUTE; i++ )
+                    {
+                        std::cout << "Estou a imprimir o array last minute: " << array[i] << std::endl;
+                    }
+                    std::cout << "Báu cheio!! :)\n";    
+                    first = false;
+                }
+            }
+        );
+        last_minute.join();
+        
+         // ***********TESTE***********
         break;
     }
-
+    default:
+        //std::cout << "Default at switch " << (int)(uint8_t)command[0] << std::endl;
+        break;
+    }
 }
 
 /*

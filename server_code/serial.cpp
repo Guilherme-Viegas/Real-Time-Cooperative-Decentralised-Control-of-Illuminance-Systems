@@ -25,6 +25,7 @@ communications::communications( boost::asio::io_context *io )
 communications::~communications()
 {   
     if(DEBUG) std::cout << "This is the final message of the Serial communication :(\n";
+    boost::asio::write( *t_serial, boost::asio::buffer("+RPiE"), t_ec );
     t_serial->close();
 }
 
@@ -37,13 +38,14 @@ uint8_t communications::has_hub()
     // sleep(2);
     // https://stackoverflow.com/questions/39517133/write-some-vs-write-boost-asio - "Since you're only sending a little data, you don't save much time by returning before all the data's sent.(write_some)"
     boost::asio::write( *t_serial, boost::asio::buffer("+RPiG"), t_ec );
-    boost::asio::read( *t_serial, t_buf4, t_ec );   // expected "A<>:)"
+    // boost::asio::read( *t_serial, t_buf4, t_ec );   // expected "A<>:)"
 
     // gets answer
     char tmp[1] {};
 
     do  // waits for the first 'A' (sent by an Arduino, if not it was just luck)
-    {
+    {   
+        boost::asio::read( *t_serial, t_buf4, t_ec );
         t_buf4.sgetn(tmp, 1);
     } while ( std::strncmp(tmp, "A", 1) != 0x0 );
 
@@ -65,7 +67,7 @@ uint8_t communications::has_hub()
         t_num_lamps =  (uint8_t)ch[1];
     }
 
-     if(DEBUG) std::cout << "It was found " << (int)t_num_lamps << " desk"<< ( (t_num_lamps != 1) ? "s" : "") << "!\n";
+    if(DEBUG) std::cout << "It was found " << (int)t_num_lamps << " desk"<< ( (t_num_lamps != 1) ? "s" : "") << "!\n";
     return t_num_lamps;
 }
 
@@ -83,7 +85,7 @@ void communications::write_command()
 *   Reads Arduino's commands
 */
 void communications::read_async_command( office *the_office )
-{
+{   // https://web.fe.up.pt/~ee96100/projecto/Tabela%20ascii.htm
     if(!t_coms_available) return;
 
     async_read( *t_serial, t_buf4, [ this, the_office ]( const boost::system::error_code &t_ec, std::size_t len)
@@ -91,13 +93,44 @@ void communications::read_async_command( office *the_office )
             char ch[BUFFER_SIZE] {};
             t_buf4.sgetn(ch, BUFFER_SIZE);
 
-            if(!t_ec)
+            if(ch[0] == 's') // stream
             {
-                // the_office->get_state();
-                the_office->updates_database( ch, BUFFER_SIZE );
-                read_async_command( the_office );
+                char ch2[BUFFER_SIZE] { };
 
+                boost::asio::streambuf aux_{2};
+                boost::asio::read( *t_serial, aux_, this->t_ec );
+                aux_.sgetn(ch2, BUFFER_SIZE);
+
+                char command[BUFFER_SIZE+2] {};
+
+                for(int i = 0; i < BUFFER_SIZE; i++)
+                {
+                    command[i] = ch[i];
+                }
+                for(int i = 0; i < 2; i++)
+                {
+                    command[i+BUFFER_SIZE] = ch2[i];
+                }
+
+                if(!t_ec)
+                {
+                    // the_office->get_state();
+                    the_office->updates_database( command, BUFFER_SIZE+2 );
+                    read_async_command( the_office );
+                }
             }
+            else    // normal command
+            {
+                if(!t_ec)
+                {
+                    // the_office->get_state();
+                    the_office->updates_database( ch, BUFFER_SIZE );
+                    read_async_command( the_office );
+                }
+            }
+
+
+
         }
     );
 }
