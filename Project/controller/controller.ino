@@ -30,7 +30,7 @@ boolean LOOP = false;
 boolean SIMULATOR = false;
 boolean DEBUG = true;
 
-
+long ack_time = 0;
 /*-------------------------------------|
  * STATE MACHINE OF THE PROGRAM        |
 ---------------------------------------|*/
@@ -40,7 +40,7 @@ state_machine prev_state = booting;
 
 //number of nodes in ready_for_calib state
 int ready_number=0;
-
+int num_of_ollehs = 0;
 /*------------------------|
  * TYPE OF MESSAGES       |
 --------------------------|*/
@@ -219,16 +219,15 @@ can_frame* readMsg(int *frames_arr_size){
 /*-----------------------------------------------|
   Function when the node is in booting state     |
 -------------------------------------------------|*/
-void booting_function(int msg_to_send){
+void booting_function(msg_types msg_to_send){
   msg_to_send = hello;
-  smallMsg(0, msg_to_send, my_address);
-  if(DEBUG)
-    Serial.println("Booting Up - Sended HELLO msg");
+  writeMsg(0, msg_to_send, my_address);
+  prev_state = my_state;
   my_state = w8ing_msg;
 }
 
 void setup() {
-  Serial.begin(19200);
+  Serial.begin(57600);
 
   int eeprom_addr = 0;
   EEPROM.get(eeprom_addr, my_address);
@@ -292,36 +291,36 @@ float getValueMsg(can_frame frame){
 void loop() {
   frames_arr_size = 0;
   frames = readMsg(&frames_arr_size);
+  
   switch(my_state){
     case booting:{
       booting_function(msg_to_send);
       starting_time = micros();
     }break;
     case w8ing_msg:{
-      int num_of_responses = 0;
       if(micros() - starting_time >= 2000000){
         //Time has passed, I'm the only node on grid and I'm ready for calib
+        prev_state = my_state;
         my_state = ready_for_calib;
+
+        if(num_of_ollehs > 0) {
+          number_of_addresses = 2 + num_of_ollehs;
+          bubbleSort(nodes_addresses, number_of_addresses);
+          //send broadcast READY_CALIB
+          msg_to_send = Ready;
+          writeMsg(0, msg_to_send, my_address);
+          num_of_ollehs = 0;
+        }
       }
       //If I received response msg, then there are other nodes on the grid
       for(int i=0; i < frames_arr_size; i++) {
         if( (frames[i].data[0] == olleh) and ( frames[i].can_id == my_address ) ) {
-          num_of_responses += 1;
+          num_of_ollehs += 1;
           // (2 + num_responses) because nodes_addresses[0] is for broadcast and nodes_addresses[1] is my addr
-          nodes_addresses = (byte*)realloc(nodes_addresses, (2 + num_of_responses)*sizeof(byte)); 
+          nodes_addresses = (byte*)realloc(nodes_addresses, (2 + num_of_ollehs)*sizeof(byte)); 
           //So 1st received response goes to index 2 cause 0 and 1 is for broadcast and my address
-          nodes_addresses[num_of_responses + 1] = frames[i].data[1];
+          nodes_addresses[num_of_ollehs + 1] = frames[i].data[1];
         }
-      }
-      if(num_of_responses > 0) {
-        number_of_addresses = 2 + num_of_responses;
-        nodes_addresses[0] = 0;
-        nodes_addresses[1] = my_address;
-        bubbleSort(nodes_addresses, number_of_addresses);
-        //send broadcast READY_CALIB
-        msg_to_send = Ready;
-        smallMsg(0, msg_to_send, my_address);
-        my_state = ready_for_calib;
       }
     }break; 
     case ready_for_calib:{
@@ -329,8 +328,8 @@ void loop() {
       my_offset = -1;
       my_pwm = -1;
       avg_pwm = -1;
-      free(pwm_vect);
-      free(my_gains_vect);
+      //free(pwm_vect);
+      //free(my_gains_vect);
       pwm_vect = (int*)malloc((number_of_addresses - 1)*sizeof(int));
       my_gains_vect = (float*)malloc((number_of_addresses - 1)*sizeof(float));
       my_luminance = -1;
@@ -360,14 +359,14 @@ void loop() {
         writeMsg(0, msg_to_send, my_address);
         prev_state = my_state;
         my_state = w8ing_ack;
+        ack_time = micros();
       } else if( (prev_state == w8ing_ack) && (my_offset < 0) ) { //Now I know all the nodes turned off their led
         my_offset = pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true);
-        if(DEBUG)
-          Serial.println("My OFFSET read is " + String(my_offset));
         msg_to_send = read_offset_value;
         writeMsg(0, msg_to_send, my_address);
         prev_state = my_state;
         my_state = w8ing_ack;
+        ack_time = micros();
       } else if( (prev_state == w8ing_ack) && (my_offset >= 0) ) { //Now I know every node computed their offset so I'm for entering calibration state
         prev_state = my_state;
         my_state = calibration; 
@@ -382,15 +381,11 @@ void loop() {
               writeMsg(frames[i].data[1], msg_to_send, my_address);
           } else if(frames[i].data[0] == read_offset_value) {
               my_offset = pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true);
-              if(DEBUG)
-                Serial.println("My OFFSET read is " + String(my_offset));
               msg_to_send = ACK;
               writeMsg(frames[i].data[1], msg_to_send, my_address);
           } else if(frames[i].data[0] == read_lux_value) {
               //Compute my K
               my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, byte(frames[i].data[1])) - 1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
-              if(DEBUG)
-                Serial.println("Gain stored is " + String(my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, frames[i].data[1]) - 1]));
               msg_to_send = ACK;
               writeMsg(frames[i].data[1], msg_to_send, my_address);
           } else if( (frames[i].data[0] == your_time_master) && (my_address == frames[i].can_id) ) {
@@ -407,29 +402,23 @@ void loop() {
           prev_state = my_state;
           my_state = w8ing_ldr_read;
           starting_time = micros();
-          msg_to_send = read_lux_value;
-          writeMsg(0, msg_to_send, my_address);
         } else if(prev_state == w8ing_ldr_read) {
           //Compute my K
           my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, my_address)-1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
-          if(DEBUG) {
-            Serial.println("Directly from pid: " + String(pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true)));
-            Serial.println("Gain stored is " + String(my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, my_address)-1]));
-          }
+          msg_to_send = read_lux_value;
+          writeMsg(0, msg_to_send, my_address);
           prev_state = my_state;
-          my_state = w8ing_ack; 
+          my_state = w8ing_ack;
+          ack_time = micros();
         } else if(prev_state == w8ing_ack) {
           pid.led.setBrightness(0); //Turn off led again for not disturbing next reads
           //Pass the grenade to the next node if exists (check if I'm the last one)
           if(my_address == nodes_addresses[number_of_addresses-1]) {
             prev_state = my_state;
             my_state = consensus;
-            if(DEBUG)
-              Serial.println("Going for consensus");
           } else {
             master = false;
             msg_to_send = your_time_master;
-            Serial.println("Writing to: " + String(retrieve_index(nodes_addresses, number_of_addresses, my_address)));
             writeMsg(nodes_addresses[retrieve_index(nodes_addresses, number_of_addresses, my_address) + 1], msg_to_send, my_address); //Send msg to the next node for him to become master
           }
         }        
@@ -440,10 +429,18 @@ void loop() {
         ack_number=0; //reset
         prev_state = my_state;
         my_state = offset_calc;
+      } else if( (prev_state == offset_calc) && ( micros() - ack_time > 1000000 ) ) {
+        ack_time = 0;
+        msg_to_send = turnOff_led;
+        writeMsg(0, msg_to_send, my_address);
       } else if(( ack_number == number_of_addresses-2 ) && ( prev_state == calibration )) {
         ack_number=0; //reset
         prev_state = my_state;
         my_state = calibration;
+      } else if( (prev_state == calibration) && ( micros() - ack_time > 1000000 ) ) {
+        ack_time = 0;
+        msg_to_send = read_lux_value;
+        writeMsg(0, msg_to_send, my_address);
       }
     }break;
     case consensus:{
@@ -453,6 +450,7 @@ void loop() {
       if( (micros() - starting_time >= 4000000) && (prev_state == calibration) ) {
         prev_state = my_state;
         my_state = calibration;
+        starting_time = 0;
       }
     }break;
     default:{
@@ -460,14 +458,10 @@ void loop() {
     }break;
   }
 
-  //Serial.println("S " + String(my_state));
-  if(!DEBUG) {
+  if(DEBUG) {
     Serial.print("S: " + String(my_state));
-    //Serial.print(" - ");
-    //Serial.print("AD: " + String(my_address));
-    //Serial.print(" - RN " + String(ready_number));
     Serial.print(" - ");
-    Serial.print("Mas: " + String(master));
+    Serial.print("M: " + String(master));
     Serial.print(" - ");
     for(int i=0; i<number_of_addresses; i++) {
       Serial.print(nodes_addresses[i]);
@@ -476,7 +470,7 @@ void loop() {
     Serial.println();
     Serial.println("OFFSET = " + String(my_offset));
     for(int i=0; i<number_of_addresses-1; i++) {
-      Serial.print(my_gains_vect[i]);
+      Serial.print(my_gains_vect[i], 4);
       Serial.print(" ");
     }
     Serial.println();
@@ -486,7 +480,6 @@ void loop() {
   for(int i=0; i < frames_arr_size; i++) {
     if((frames[i].data[0] == hello) && my_state != w8ing_msg) { //Check if received msg is from a new entering node...
       bool already_on_addresses = false;
-      Serial.println("Recebi HELLO da Address: " + String(frames[i].data[1]));
       for(int j=0; j < number_of_addresses; j++) {
         if(frames[i].data[1] == nodes_addresses[j]) {
           already_on_addresses = true;
@@ -498,15 +491,12 @@ void loop() {
         nodes_addresses[number_of_addresses-1] = frames[i].data[1];
         bubbleSort(nodes_addresses, number_of_addresses);
       }
-      Serial.println("Quando mando olleh N addresses " + String(number_of_addresses));
-      Serial.println("PARA ARDUINO: " + String(frames[i].data[1]));
       msg_to_send = olleh;
       smallMsg(frames[i].data[1], msg_to_send, my_address);
       delay(2);
     }
     //new node entered and said Ready
     else if((frames[i].data[0] == Ready) && frames[i].can_id == 0 && my_state != w8ing_msg){
-      Serial.println("RECEBI READY");
       msg_to_send = Ready;
       prev_state = my_state;
       my_state = ready_for_calib;
