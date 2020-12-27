@@ -87,23 +87,23 @@ void office::updates_database( char command[], uint8_t size )
 
         // ***********TESTE para ver se ele imprime o last minute***********
 
-         std::thread last_minute(
-            [&](){
+        //  std::thread last_minute(
+        //     [&](){
 
-                if( t_lamps_array[command[1]-1]->t_lumminace.is_full() && first ){
+        //         if( t_lamps_array[command[1]-1]->t_lumminace.is_full() && first ){
                             
-                    std::unique_ptr<float[]> array = t_lamps_array[command[1]-1]->t_lumminace.get_all();
+        //             std::unique_ptr<float[]> array = t_lamps_array[command[1]-1]->t_lumminace.get_all();
 
-                    for(int i = 0; i < N_POINTS_MINUTE; i++ )
-                    {
-                        std::cout << "Estou a imprimir o array last minute: " << array[i] << std::endl;
-                    }
-                    std::cout << "Báu cheio!! :)\n";    
-                    first = false;
-                }
-            }
-        );
-        last_minute.join();
+        //             for(int i = 0; i < N_POINTS_MINUTE; i++ )
+        //             {
+        //                 std::cout << "Estou a imprimir o array last minute: " << array[i] << std::endl;
+        //             }
+        //             std::cout << "Báu cheio!! :)\n";    
+        //             first = false;
+        //         }
+        //     }
+        // );
+        // last_minute.join();
         
          // ***********TESTE***********
         break;
