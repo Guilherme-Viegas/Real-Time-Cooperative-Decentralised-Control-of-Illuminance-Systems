@@ -34,26 +34,38 @@ bool hub()
         bool state[arduinos] = {true};
         for(int a=0; a<arduinos; a++)
         {
+          Serial.write("+");
           Serial.write("o");
           Serial.write(a+1);
           Serial.write(state[a]);
           Serial.write('*');
         }
 
-        float lower_bound_occupied[arduinos] = {3.0};
+        float lower_bound_occupied[arduinos] = {3.39};
         for(int a=0; a<arduinos; a++)
         {
+          Serial.write("+");
           Serial.write("O");
           Serial.write(a+1);
           float_2_bytes(lower_bound_occupied[a]);
         }
 
-        float lower_bound_unoccupied[arduinos] = {1.0};
+        float lower_bound_unoccupied[arduinos] = {1.57};
         for(int a=0; a<arduinos; a++)
         {
+          Serial.write("+");
           Serial.write("U");
           Serial.write(a+1);
           float_2_bytes(lower_bound_unoccupied[a]);
+        }
+
+        float costs[arduinos] = {1.0};
+        for(int a=0; a<arduinos; a++)
+        {
+          Serial.write("+");
+          Serial.write("c");
+          Serial.write(a+1);
+          float_2_bytes(costs[a]);
         }
 
         return true;
@@ -65,6 +77,7 @@ bool hub()
         // Serial.write("x");
         // Serial.write(7); // number of arduinos
         // Serial.write(":(");
+        Serial.write("+");
         Serial.write(welcome[0]);
         Serial.write(welcome[1]);
         Serial.write(welcome[2]);
@@ -112,15 +125,19 @@ void greeting(int numLamps)
 {
     // Greeting
     numLamps = numLamps < 0 ? 0 : numLamps > 255 ? 255 : numLamps;  // normalize number of desks.
+    
+    Serial.write("+");
     Serial.write("A");
     Serial.write(numLamps); // number of arduinos
     Serial.write(":)");
+    
 }
 
 // the time spent occupates 2.5 bytes with integer number and 4bit with float
 void send_time()
 {   
     double time_ = millis() * 1e-3;
+    Serial.write("+");
     Serial.write('t');
     Serial.write( ( (unsigned long)round(time_) & 0xFF000)  >> 12 );
     float_2_bytes( time_ - ((unsigned long)round(time_) & 0xFF000) );

@@ -46,16 +46,17 @@ int main()
     communications the_serial{ &io };
 
     uint8_t num_lamps = the_serial.has_hub();
-    if( num_lamps < 0 )
+    if( num_lamps <= 0 )
     {
         stop_server = true;
+        std::cout << "EARLY EXIT WIHT " << num_lamps << "LAMPS" << std::endl;
         return 0;
     }
 
     office the_office { num_lamps } ;
 
     the_serial.write_command();
-    the_serial.read_async_command( &the_office );
+    the_serial.read_until_asynchronous( &the_office, '+' );
 
     start_read_input( &stm_desc ) ;
 

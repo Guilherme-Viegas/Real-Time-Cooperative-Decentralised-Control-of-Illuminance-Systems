@@ -16,7 +16,8 @@
 #define MAC_PORT "/dev/tty.usbmodem143101" // ls /dev/tty.*
 #define BAUD_RATE 230400//230400
 #define ARDUINO_MESSAGE "Arduino"
-#define BUFFER_SIZE 4
+#define BUFFER_SIZE_COMMAND 4
+#define BUFFER_SIZE_STREAM 6
 
 
 /*
@@ -31,11 +32,14 @@ private:    // this things are private
     std::unique_ptr<boost::asio::serial_port> t_serial;
 
     boost::system::error_code t_ec;
-    boost::asio::streambuf t_buf4{BUFFER_SIZE};
-    uint8_t t_num_lamps = -1;
+    boost::asio::streambuf t_buf_command {BUFFER_SIZE_COMMAND};
+    boost::asio::streambuf t_buf_stream {BUFFER_SIZE_STREAM};
+    boost::asio::streambuf t_buf {1};
+    uint8_t t_num_lamps = 0;
     bool t_coms_available = true;
 
     // functions
+    void read_async_command( office *the_office );
 
     
 public:     // this things are public
@@ -46,7 +50,7 @@ public:     // this things are public
 
     uint8_t has_hub();
     void write_command();
-    void read_async_command( office *the_office );
+    void read_until_asynchronous( office *the_office, char delimiter );
     void set_coms_not_available(){ t_coms_available = false; }
 
 };

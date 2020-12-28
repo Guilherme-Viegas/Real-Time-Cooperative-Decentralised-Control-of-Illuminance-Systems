@@ -20,9 +20,9 @@ void LdrController::setGain( byte led_pin, float m ){
   t_bb = log10(1E5); // value for the resistor during the dark
 
   //computeGain( led_pin );
-  t_gain = 0.0304;
-  t_offset = 0.4467;
-  t_maxLux = 8.01;
+  t_gain = 0.0367;
+  t_offset = 6.7097;
+  t_maxLux = 16.01;
 
 }
 
@@ -43,7 +43,7 @@ void LdrController::computeGain( byte led_pin ){
   float m_mean = 0.0; // mean of m
   unsigned short len_without_b = cicles - 1; // total times pwm is not 0
 
-  Serial.print("Computing gain ...");
+  // Serial.print("Computing gain ...");
 
   for(int i=0; i<cicles; i++){  // has to start in 0
     
@@ -87,7 +87,7 @@ void LdrController::computeGain( byte led_pin ){
   // assures that the maximum is possible
   t_maxLux = t_maxLux < (t_gain) * 255 + (t_offset) ? t_maxLux : (t_gain) * 255 + (t_offset) ; 
 
-  Serial.println("Gain and offset is: Lux = " + String(t_gain, 4) + " * PWM + " + String(t_offset, 4));
+  //Serial.println("Gain and offset is: Lux = " + String(t_gain, 4) + " * PWM + " + String(t_offset, 4));
   
 }
 
@@ -167,7 +167,7 @@ void Tau::setParametersABC( float A, float B, float C ){
   if( C >= 0 ){ t_c = C; }else{ t_c = -1.0; }
 
   t_isDefine = ( t_a != -1.0 ) and ( t_b != 1.0 ) and ( t_c != -1.0 );
-  if(t_isDefine){ Serial.println("The tau parameters are set."); }
+  //if(t_isDefine){ Serial.println("The tau parameters are set."); }
 }
 
 /*

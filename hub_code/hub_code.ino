@@ -23,7 +23,7 @@ void setup() {
   pid.ldr.t_tau_up.setParametersABC( 29.207246, -0.024485, 11.085226); // values computed in the python file
   pid.ldr.t_tau_down.setParametersABC( 15.402250,  -0.015674, 8.313158); // values computed in the python file
 
-  Serial.println("Set up completed");
+  //Serial.println("Set up completed");
   
   
   pid.setReferenceLux( 3 ); // sets the minimum value in the led ( zero instant )
@@ -68,6 +68,7 @@ ISR(TIMER1_COMPA_vect)
   { 
     counter++;
     // pwm
+    Serial.write("+");
     Serial.write("s");
     Serial.write(1);
     // float_2_bytes( pid.ldr.luxToOutputVoltage( 5.0*analogRead( pid.getLdrPin() ) / 1023.0, true) );
