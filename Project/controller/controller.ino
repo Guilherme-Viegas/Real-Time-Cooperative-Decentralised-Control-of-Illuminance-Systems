@@ -493,7 +493,6 @@ void loop() {
       }
       msg_to_send = olleh;
       smallMsg(frames[i].data[1], msg_to_send, my_address);
-      delay(2);
     }
     //new node entered and said Ready
     else if((frames[i].data[0] == Ready) && frames[i].can_id == 0 && my_state != w8ing_msg){
@@ -552,7 +551,6 @@ void loop() {
       pid.output();
     }
   }*/
-  delay(1);
 }
 
 
