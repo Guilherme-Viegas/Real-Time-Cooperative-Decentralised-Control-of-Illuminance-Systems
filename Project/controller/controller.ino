@@ -216,16 +216,6 @@ can_frame* readMsg(int *frames_arr_size){
   }
 }
 
-/*-----------------------------------------------|
-  Function when the node is in booting state     |
--------------------------------------------------|*/
-void booting_function(msg_types msg_to_send){
-  msg_to_send = hello;
-  writeMsg(0, msg_to_send, my_address);
-  prev_state = my_state;
-  my_state = w8ing_msg;
-}
-
 void setup() {
   Serial.begin(57600);
 
@@ -271,7 +261,6 @@ void setup() {
   number_of_addresses = 2;  
 }
 
-
 /*
  * FUNCTION to get the float value of CAN message
 */
@@ -287,6 +276,238 @@ float getValueMsg(can_frame frame){
   return x;
 }
 
+//*************** STATE MACHINE FUNCTIONS ************************
+/*-----------------------------------------------|
+  Function when the node is in booting state     |
+-------------------------------------------------|*/
+void booting_function(msg_types msg_to_send){
+  msg_to_send = hello;
+  writeMsg(0, msg_to_send, my_address);
+  prev_state = my_state;
+  my_state = w8ing_msg;
+}
+
+/*-----------------------------------------------|
+  Function when tht node is waiting for ollehs   |
+-------------------------------------------------|*/
+void w8ing_function(){
+  if(micros() - starting_time >= 2000000){
+    //Time has passed, I'm the only node on grid and I'm ready for calib
+    prev_state = my_state;
+    my_state = ready_for_calib;
+  
+    if(num_of_ollehs > 0) {
+      number_of_addresses = 2 + num_of_ollehs;
+      bubbleSort(nodes_addresses, number_of_addresses);
+      //send broadcast READY_CALIB
+      msg_to_send = Ready;
+      writeMsg(0, msg_to_send, my_address);
+      num_of_ollehs = 0;
+    }
+  }
+  //If I received response msg, then there are other nodes on the grid
+  for(int i=0; i < frames_arr_size; i++) {
+    if( (frames[i].data[0] == olleh) and ( frames[i].can_id == my_address ) ) {
+      num_of_ollehs += 1;
+      // (2 + num_responses) because nodes_addresses[0] is for broadcast and nodes_addresses[1] is my addr
+      nodes_addresses = (byte*)realloc(nodes_addresses, (2 + num_of_ollehs)*sizeof(byte)); 
+      //So 1st received response goes to index 2 cause 0 and 1 is for broadcast and my address
+      nodes_addresses[num_of_ollehs + 1] = frames[i].data[1];
+    }
+  }
+}
+
+/*-----------------------------------------------------------------------------|
+  Function when the node is waiting all the nodes to be ready for calibration  |
+-------------------------------------------------------------------------------|*/
+void ready_function(){
+  //Reset calibration variables
+  my_offset = -1;
+  my_pwm = -1;
+  avg_pwm = -1;
+  //free(pwm_vect);
+  //free(my_gains_vect);
+  pwm_vect = (int*)malloc((number_of_addresses - 1)*sizeof(int));
+  my_gains_vect = (float*)malloc((number_of_addresses - 1)*sizeof(float));
+  my_luminance = -1;
+  for(int i=0; i < frames_arr_size; i++){
+    if(frames[i].data[0] == Ready && frames[i].can_id == my_address){
+      ready_number+=1;
+    }
+  }
+  if(ready_number==number_of_addresses-2){
+    if(nodes_addresses[1] == my_address) { //If i'm the 1st node on addr vector then I run offset computation once and only once
+      master = true;
+      prev_state = my_state;
+      my_state = offset_calc;
+    }
+    else {
+      master = false;
+      prev_state = my_state;
+      my_state = calibration; //All the other nodes enter calibration state
+    }
+    ready_number=0;
+  }
+}
+
+
+/*-----------------------------------------------|
+  Function when the node is computing offset     |
+-------------------------------------------------|*/
+void offset_function(){
+  //I'm the master and the first node so I enter first here for computing the offsets for all, only once
+  pid.led.setBrightness(0); //Turn off myLed
+  if(prev_state == ready_for_calib) {
+    msg_to_send = turnOff_led;
+    writeMsg(0, msg_to_send, my_address);
+    prev_state = my_state;
+    my_state = w8ing_ack;
+    ack_time = micros();
+  } else if( (prev_state == w8ing_ack) && (my_offset < 0) ) { 
+    //Now I know all the nodes turned off their led
+    my_offset = pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true);
+    msg_to_send = read_offset_value;
+    writeMsg(0, msg_to_send, my_address);
+    prev_state = my_state;
+    my_state = w8ing_ack;
+    ack_time = micros();
+  } else if( (prev_state == w8ing_ack) && (my_offset >= 0) ) { 
+    //Now I know every node computed their offset so I'm for entering calibration state
+    prev_state = my_state;
+    my_state = calibration; 
+  }
+}
+
+/*------------------------------------------------------|
+  Function when the node is waiting for all the acks    |
+--------------------------------------------------------|*/
+
+void w8ing_ack_function(){
+  if( ( ack_number == number_of_addresses-2 ) && ( prev_state == offset_calc ) ){
+    ack_number=0; //reset
+    prev_state = my_state;
+    my_state = offset_calc;
+  } else if( (prev_state == offset_calc) && ( micros() - ack_time > 1000000 ) ) {
+    ack_time = 0;
+    msg_to_send = turnOff_led;
+    writeMsg(0, msg_to_send, my_address);
+  } else if(( ack_number == number_of_addresses-2 ) && ( prev_state == calibration )) {
+    ack_number=0; //reset
+    prev_state = my_state;
+    my_state = calibration;
+  } else if( (prev_state == calibration) && ( micros() - ack_time > 1000000 ) ) {
+    ack_time = 0;
+    msg_to_send = read_lux_value;
+    writeMsg(0, msg_to_send, my_address);
+  }
+}
+
+/*------------------------------------------------------|
+  Function to calibrate K                               |
+--------------------------------------------------------|*/
+
+void calib_function(){
+  //I'm not the first addr so when I'm the master I only do the calibration part of entire Calibration
+  if(!master) { 
+    //I'm not master, so in calibration I need to check for receiving msgs from the master node
+    for(int i=0; i < frames_arr_size; i++) {
+      if(frames[i].data[0] == turnOff_led) {
+          pid.led.setBrightness(0);
+          msg_to_send = ACK;
+          writeMsg(frames[i].data[1], msg_to_send, my_address);
+      } else if(frames[i].data[0] == read_offset_value) {
+          my_offset = pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true);
+          msg_to_send = ACK;
+          writeMsg(frames[i].data[1], msg_to_send, my_address);
+      } else if(frames[i].data[0] == read_lux_value) {
+          //Compute my K
+          my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, byte(frames[i].data[1])) - 1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
+          msg_to_send = ACK;
+          writeMsg(frames[i].data[1], msg_to_send, my_address);
+      } else if( (frames[i].data[0] == your_time_master) && (my_address == frames[i].can_id) ) {
+          master = true;
+          prev_state = offset_calc; //Simulate I was in offset_calc(but I was not)
+      } else if(frames[i].data[0] == start_consensus) {
+        prev_state = my_state;
+        my_state = consensus; 
+      }
+    }
+  } else { 
+    //If this is my round of being the master
+    if( prev_state == offset_calc ) {
+      pid.led.setBrightness(255); //I know that everyone's led is turned off so I can turn on mine
+      prev_state = my_state;
+      my_state = w8ing_ldr_read;
+      starting_time = micros();
+    } else if(prev_state == w8ing_ldr_read) {
+      //Compute my K
+      my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, my_address)-1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
+      msg_to_send = read_lux_value;
+      writeMsg(0, msg_to_send, my_address);
+      prev_state = my_state;
+      my_state = w8ing_ack;
+      ack_time = micros();
+    } else if(prev_state == w8ing_ack) {
+      pid.led.setBrightness(0); //Turn off led again for not disturbing next reads
+      //Pass the grenade to the next node if exists (check if I'm the last one)
+      if(my_address == nodes_addresses[number_of_addresses-1]) {
+        prev_state = my_state;
+        my_state = consensus;
+      } else {
+        master = false;
+        msg_to_send = your_time_master;
+        writeMsg(nodes_addresses[retrieve_index(nodes_addresses, number_of_addresses, my_address) + 1], msg_to_send, my_address); //Send msg to the next node for him to become master
+      }
+    }        
+  }
+}
+
+/*------------------------------------------------------|
+  Function check end loop messages                      |
+--------------------------------------------------------|*/
+
+void check_messages(){
+  for(int i=0; i < frames_arr_size; i++) {
+    //Check if received msg is from a new entering node...
+    if((frames[i].data[0] == hello) && my_state != w8ing_msg) { 
+      bool already_on_addresses = false;
+      for(int j=0; j < number_of_addresses; j++) {
+        if(frames[i].data[1] == nodes_addresses[j]) {
+          already_on_addresses = true;
+        }
+      }
+      //If this address have never been to my addresse's vector
+      if(already_on_addresses == false) { 
+        number_of_addresses += 1;
+        nodes_addresses = (byte*)realloc(nodes_addresses, number_of_addresses*sizeof(byte));
+        nodes_addresses[number_of_addresses-1] = frames[i].data[1];
+        bubbleSort(nodes_addresses, number_of_addresses);
+      }
+      msg_to_send = olleh;
+      smallMsg(frames[i].data[1], msg_to_send, my_address);
+      delay(2);
+    }
+    //new node entered and said Ready
+    else if((frames[i].data[0] == Ready) && frames[i].can_id == 0 && my_state != w8ing_msg){
+      msg_to_send = Ready;
+      prev_state = my_state;
+      my_state = ready_for_calib;
+      ready_number += 1;
+      for(int i=1; i<number_of_addresses;i++){
+        if(nodes_addresses[i] != my_address){
+          //send Ready messages for everybody
+          writeMsg(nodes_addresses[i], msg_to_send, my_address);
+        }
+      }
+    }
+    else if((frames[i].data[0] == ACK) && frames[i].can_id == my_address){
+      //ack number
+      ack_number += 1;
+    }
+  }
+}
+
+//************** END STATE MACHINE FUNCTIONS ****************
 
 void loop() {
   frames_arr_size = 0;
@@ -298,150 +519,19 @@ void loop() {
       starting_time = micros();
     }break;
     case w8ing_msg:{
-      if(micros() - starting_time >= 2000000){
-        //Time has passed, I'm the only node on grid and I'm ready for calib
-        prev_state = my_state;
-        my_state = ready_for_calib;
-
-        if(num_of_ollehs > 0) {
-          number_of_addresses = 2 + num_of_ollehs;
-          bubbleSort(nodes_addresses, number_of_addresses);
-          //send broadcast READY_CALIB
-          msg_to_send = Ready;
-          writeMsg(0, msg_to_send, my_address);
-          num_of_ollehs = 0;
-        }
-      }
-      //If I received response msg, then there are other nodes on the grid
-      for(int i=0; i < frames_arr_size; i++) {
-        if( (frames[i].data[0] == olleh) and ( frames[i].can_id == my_address ) ) {
-          num_of_ollehs += 1;
-          // (2 + num_responses) because nodes_addresses[0] is for broadcast and nodes_addresses[1] is my addr
-          nodes_addresses = (byte*)realloc(nodes_addresses, (2 + num_of_ollehs)*sizeof(byte)); 
-          //So 1st received response goes to index 2 cause 0 and 1 is for broadcast and my address
-          nodes_addresses[num_of_ollehs + 1] = frames[i].data[1];
-        }
-      }
+      w8ing_function();
     }break; 
     case ready_for_calib:{
-      //Reset calibration variables
-      my_offset = -1;
-      my_pwm = -1;
-      avg_pwm = -1;
-      //free(pwm_vect);
-      //free(my_gains_vect);
-      pwm_vect = (int*)malloc((number_of_addresses - 1)*sizeof(int));
-      my_gains_vect = (float*)malloc((number_of_addresses - 1)*sizeof(float));
-      my_luminance = -1;
-      for(int i=0; i < frames_arr_size; i++){
-        if(frames[i].data[0] == Ready && frames[i].can_id == my_address){
-          ready_number+=1;
-        }
-      }
-      if(ready_number==number_of_addresses-2){
-        if(nodes_addresses[1] == my_address) { //If i'm the 1st node on addr vector then I run offset computation once and only once
-          master = true;
-          prev_state = my_state;
-          my_state = offset_calc;
-        }
-        else {
-          master = false;
-          prev_state = my_state;
-          my_state = calibration; //All the other nodes enter calibration state
-        }
-        ready_number=0;
-      }
+      ready_function();
     }break;
-    case offset_calc:{ //I'm the master and the first node so I enter first here for computing the offsets for all, only once
-      pid.led.setBrightness(0); //Turn off myLed
-      if(prev_state == ready_for_calib) {
-        msg_to_send = turnOff_led;
-        writeMsg(0, msg_to_send, my_address);
-        prev_state = my_state;
-        my_state = w8ing_ack;
-        ack_time = micros();
-      } else if( (prev_state == w8ing_ack) && (my_offset < 0) ) { //Now I know all the nodes turned off their led
-        my_offset = pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true);
-        msg_to_send = read_offset_value;
-        writeMsg(0, msg_to_send, my_address);
-        prev_state = my_state;
-        my_state = w8ing_ack;
-        ack_time = micros();
-      } else if( (prev_state == w8ing_ack) && (my_offset >= 0) ) { //Now I know every node computed their offset so I'm for entering calibration state
-        prev_state = my_state;
-        my_state = calibration; 
-      }
+    case offset_calc:{ 
+      offset_function();
     }break;
-    case calibration:{ //I'm not the first addr so when I'm the master I only do the calibration part of entire Calibration
-      if(!master) { //I'm not master, so in calibration I need to check for receiving msgs from the master node
-        for(int i=0; i < frames_arr_size; i++) {
-          if(frames[i].data[0] == turnOff_led) {
-              pid.led.setBrightness(0);
-              msg_to_send = ACK;
-              writeMsg(frames[i].data[1], msg_to_send, my_address);
-          } else if(frames[i].data[0] == read_offset_value) {
-              my_offset = pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true);
-              msg_to_send = ACK;
-              writeMsg(frames[i].data[1], msg_to_send, my_address);
-          } else if(frames[i].data[0] == read_lux_value) {
-              //Compute my K
-              my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, byte(frames[i].data[1])) - 1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
-              msg_to_send = ACK;
-              writeMsg(frames[i].data[1], msg_to_send, my_address);
-          } else if( (frames[i].data[0] == your_time_master) && (my_address == frames[i].can_id) ) {
-              master = true;
-              prev_state = offset_calc; //Simulate I was in offset_calc(but I was not)
-          } else if(frames[i].data[0] == start_consensus) {
-            prev_state = my_state;
-            my_state = consensus; 
-          }
-        }
-      } else { //If this is my round of being the master
-        if( prev_state == offset_calc ) {
-          pid.led.setBrightness(255); //I know that everyone's led is turned off so I can turn on mine
-          prev_state = my_state;
-          my_state = w8ing_ldr_read;
-          starting_time = micros();
-        } else if(prev_state == w8ing_ldr_read) {
-          //Compute my K
-          my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, my_address)-1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
-          msg_to_send = read_lux_value;
-          writeMsg(0, msg_to_send, my_address);
-          prev_state = my_state;
-          my_state = w8ing_ack;
-          ack_time = micros();
-        } else if(prev_state == w8ing_ack) {
-          pid.led.setBrightness(0); //Turn off led again for not disturbing next reads
-          //Pass the grenade to the next node if exists (check if I'm the last one)
-          if(my_address == nodes_addresses[number_of_addresses-1]) {
-            prev_state = my_state;
-            my_state = consensus;
-          } else {
-            master = false;
-            msg_to_send = your_time_master;
-            writeMsg(nodes_addresses[retrieve_index(nodes_addresses, number_of_addresses, my_address) + 1], msg_to_send, my_address); //Send msg to the next node for him to become master
-          }
-        }        
-      }
+    case calibration:{ 
+      calib_function();
     }break;
     case w8ing_ack:{
-      if( ( ack_number == number_of_addresses-2 ) && ( prev_state == offset_calc ) ){
-        ack_number=0; //reset
-        prev_state = my_state;
-        my_state = offset_calc;
-      } else if( (prev_state == offset_calc) && ( micros() - ack_time > 1000000 ) ) {
-        ack_time = 0;
-        msg_to_send = turnOff_led;
-        writeMsg(0, msg_to_send, my_address);
-      } else if(( ack_number == number_of_addresses-2 ) && ( prev_state == calibration )) {
-        ack_number=0; //reset
-        prev_state = my_state;
-        my_state = calibration;
-      } else if( (prev_state == calibration) && ( micros() - ack_time > 1000000 ) ) {
-        ack_time = 0;
-        msg_to_send = read_lux_value;
-        writeMsg(0, msg_to_send, my_address);
-      }
+      w8ing_ack_function();
     }break;
     case consensus:{
       
@@ -477,42 +567,7 @@ void loop() {
   }  
 
   //Check messages received from the can-bus  
-  for(int i=0; i < frames_arr_size; i++) {
-    if((frames[i].data[0] == hello) && my_state != w8ing_msg) { //Check if received msg is from a new entering node...
-      bool already_on_addresses = false;
-      for(int j=0; j < number_of_addresses; j++) {
-        if(frames[i].data[1] == nodes_addresses[j]) {
-          already_on_addresses = true;
-        }
-      }
-      if(already_on_addresses == false) { //If this address have never been to my addresse's vector
-        number_of_addresses += 1;
-        nodes_addresses = (byte*)realloc(nodes_addresses, number_of_addresses*sizeof(byte));
-        nodes_addresses[number_of_addresses-1] = frames[i].data[1];
-        bubbleSort(nodes_addresses, number_of_addresses);
-      }
-      msg_to_send = olleh;
-      smallMsg(frames[i].data[1], msg_to_send, my_address);
-    }
-    //new node entered and said Ready
-    else if((frames[i].data[0] == Ready) && frames[i].can_id == 0 && my_state != w8ing_msg){
-      msg_to_send = Ready;
-      prev_state = my_state;
-      my_state = ready_for_calib;
-      ready_number += 1;
-      for(int i=1; i<number_of_addresses;i++){
-        if(nodes_addresses[i] != my_address){
-          //send Ready messages for everybody
-          writeMsg(nodes_addresses[i], msg_to_send, my_address);
-        }
-      }
-    }
-    else if((frames[i].data[0] == ACK) && frames[i].can_id == my_address){
-      //ack number
-      ack_number += 1;
-    }
-  }
-  
+  check_messages();
 
   //if(Serial.available()){ hub(number_of_addresses-1); } 
   
