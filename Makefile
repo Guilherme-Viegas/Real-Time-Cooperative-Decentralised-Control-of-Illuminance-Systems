@@ -111,7 +111,7 @@ run_n_client:
 		done
 
 # runs the server
-run: # run_server:
+run_server: # run_server:
 		clear
 
 		@echo "       .~~.   .~~.                                                                   "

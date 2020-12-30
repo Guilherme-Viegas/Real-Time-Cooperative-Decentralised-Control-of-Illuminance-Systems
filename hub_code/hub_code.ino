@@ -62,7 +62,6 @@ void loop() {
 // interrupt service routine 
 ISR(TIMER1_COMPA_vect)        
 { 
-  pid.computeFeedbackGain( analogRead( pid.getLdrPin() ) );
 
   if(transmiting)
   { 
@@ -70,12 +69,13 @@ ISR(TIMER1_COMPA_vect)
     // pwm
     Serial.write("+");
     Serial.write("s");
-    Serial.write(1);
-    // float_2_bytes( pid.ldr.luxToOutputVoltage( 5.0*analogRead( pid.getLdrPin() ) / 1023.0, true) );
-    // float_2_bytes( 100.0*pid.getU()/255.0  );
-    float_2_bytes(counter);
-    float_2_bytes(counter);
+    Serial.write(1);    // address
+    float_2_bytes( pid.ldr.luxToOutputVoltage( 5.0*analogRead( pid.getLdrPin() ) / 1023.0, true) ); // luminace
+    float_2_bytes( 100.0*pid.getU()/255.0  ); // duty cicle
+    //float_2_bytes(counter);
+    //float_2_bytes(counter);
   }
 
-  
+   pid.computeFeedbackGain( analogRead( pid.getLdrPin() ) );
+
 }

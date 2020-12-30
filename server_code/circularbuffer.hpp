@@ -3,7 +3,8 @@
 
 #include <iostream>
 #include <mutex>
-#include "unistd.h"
+#include <unistd.h>
+#include <memory>
 
 #define DEBUG 1
 
@@ -51,13 +52,13 @@ public:     // this things are public
         }
         else
         {
-            t_head = ++t_head % t_array_size;   // updates head value
+            t_head = (t_head+1) % t_array_size;   // updates head value
 
             t_ring[t_head] = new_item;  // adds new value
 
-            if( t_head == t_tail && t_is_full ){ t_tail = ++t_tail % t_array_size; }    // only updates tail if the array is full
+            if( t_head == t_tail && t_is_full ){ t_tail = (t_tail+1) % t_array_size; }    // only updates tail if the array is full
 
-            t_is_full =  ( t_head + 1 - t_tail )% t_array_size == 0;// checks if is now full
+            t_is_full =  ( t_head+1 - t_tail )% t_array_size == 0;// checks if is now full
         }   
     }
 

@@ -8,6 +8,7 @@
 #include <boost/asio.hpp>
 #include "circularbuffer.hpp"
 
+
 #define N_POINTS_MINUTE 600
 #define SAMPLE_TIME_MILIS 10
 
@@ -31,6 +32,8 @@ private:    // this things are private
     float t_luminance_prev_2 = 0.0;
     float t_duty_cicle_prev = 0.0;
     unsigned short t_n_samples = 0;
+
+    
 
     
 public:     // this things are public
@@ -61,15 +64,25 @@ class office
 {
 
 private:    // this things are private
-    lamp** t_lamps_array;
-    double t_time_since_restart = 0.0;
+    float t_time_since_restart = 0.0;
     bool t_office_is_open = false; // TODO
-    int t_num_lamps = -1; // TODO
+
+    // streams
+    bool t_stream = false;
+    char t_stream_type = ' ';
+    int t_stream_address = 0;
+    boost::asio::ip::udp::socket *t_socket;
+    boost::asio::ip::udp::endpoint *t_endpoint;
 
     // functions
     float bytes_2_float(uint8_t most_significative_bit, uint8_t less_significative_bit) const;
+    
 
 public:     // this things are public
+
+    // it is access by the async_server
+    lamp** t_lamps_array;
+    int t_num_lamps = -1; // TODO
 
     office( uint8_t numLamps );
     ~office();
@@ -83,6 +96,8 @@ public:     // this things are public
     float get_instant_power();
     float get_accumulated_visibility_error();
     float get_accumulated_flicker_error();
+    int set_upd_stream( char type = ' ', int address = 0, boost::asio::ip::udp::socket *socket = NULL, boost::asio::ip::udp::endpoint *endpoint = NULL);
+    void udp_stream ( float );
 
 };
 

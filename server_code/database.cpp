@@ -29,84 +29,70 @@ void office::updates_database( char command[], uint8_t size )
     float value = 0.0;
     //static bool first = true;
 
-    switch (command[0])
+    char desk = command[0];
+    int address = (int)(uint8_t)command[1];
+
+    switch (desk)
     {
     case 't':
     {
-        t_time_since_restart = (double)(command[1]<<12) + bytes_2_float(command[2], command[3]);
+        t_time_since_restart = (float)(address<<12) + bytes_2_float(command[2], command[3]);
         if(DEBUG) std::cout << "Time since last restart: " << t_time_since_restart << " segundos.\n";
         break;
     }
     case 'o':
     {
-        t_lamps_array[command[1]-1]->t_state = command[2];   // check if command[3] == '*'
+        t_lamps_array[address-1]->t_state = command[2];   // check if command[3] == '*'
 
-        if(DEBUG) std::cout << "Desk[" << (int)(uint8_t)command[1] << "]\tThe state was step to: " << ( t_lamps_array[command[1]-1]->t_state ? "occupied" : "unoccupied") << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe state was step to: " << ( t_lamps_array[address-1]->t_state ? "occupied" : "unoccupied") << "\n";
         break;
     }
     case 'O':
     {
         value = bytes_2_float(command[2], command[3]);
-        if( value < t_lamps_array[command[1]-1]->t_unoccupied_value )
+        if( value < t_lamps_array[address-1]->t_unoccupied_value )
         {
             std::cout << "[CLIENT]\t>>\terr\n";
             break;
         }
-        if( t_lamps_array[command[1]-1]->t_unoccupied_value >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
+        if( t_lamps_array[address-1]->t_unoccupied_value >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
         // Updates the value in the dataset
-        t_lamps_array[command[1]-1]->t_occupied_value = value;
+        t_lamps_array[address-1]->t_occupied_value = value;
     
-        if(DEBUG) std::cout << "Desk[" << (int)(uint8_t)command[1] << "]\tThe occupied value is " << t_lamps_array[command[1]-1]->t_occupied_value << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe occupied value is " << t_lamps_array[address-1]->t_occupied_value << "\n";
         break;
     }
     case 'U':
     {
         value = bytes_2_float(command[2], command[3]);
-        if( value > t_lamps_array[command[1]-1]->t_occupied_value )
+        if( value > t_lamps_array[address-1]->t_occupied_value )
         {
             std::cout << "[CLIENT]\t>>\terr\n";
             break;
         }
-        if( t_lamps_array[command[1]-1]->t_unoccupied_value >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
+        if( t_lamps_array[address-1]->t_unoccupied_value >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
         // Updates the value in the dataset
-        t_lamps_array[command[1]-1]->t_unoccupied_value = value;
+        t_lamps_array[address-1]->t_unoccupied_value = value;
 
-        if(DEBUG) std::cout << "Desk[" << (int)(uint8_t)command[1] << "]\tThe unoccupied value is " << t_lamps_array[command[1]-1]->t_unoccupied_value << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe unoccupied value is " << t_lamps_array[address-1]->t_unoccupied_value << "\n";
         break;
     }
     case 's':
     {
         float luminance = bytes_2_float(command[2], command[3]);
-        t_lamps_array[command[1]-1]->t_lumminace.insert_newest( luminance );
-        std::cout << "id: " << (int)(uint8_t)command[1] << "\t\tlux: " << (t_lamps_array[command[1]-1]->t_lumminace).get_newest();
+        t_lamps_array[address-1]->t_lumminace.insert_newest( luminance );
 
-        float duty_cicle = bytes_2_float(command[4], command[5]);
-        t_lamps_array[command[1]-1]->t_duty_cicle.insert_newest( duty_cicle );
+        float duty_cicle = bytes_2_float(command[4], command[5])/100.0;
+        t_lamps_array[address-1]->t_duty_cicle.insert_newest( duty_cicle );
 
-        std::cout << "\tdc: " << t_lamps_array[command[1]-1]->t_duty_cicle.get_newest() << std::endl;
-
-        t_lamps_array[command[1]-1]->compute_performance_metrics_at_desk( luminance, duty_cicle );
+        t_lamps_array[address-1]->compute_performance_metrics_at_desk( luminance, duty_cicle );
 
         // updates time since last system restart when the information about the first one is recived
-        if( (command[1]-1) == 0 ){ t_time_since_restart += SAMPLE_TIME_MILIS*std::pow(10,-3); }
+        if( (address-1) == 0 ){ t_time_since_restart += SAMPLE_TIME_MILIS*std::pow(10,-3); }
 
-        // ***********TESTE para ver se ele imprime o last minute***********
-        //  std::thread last_minute(
-        //     [&](){
-        //         if( t_lamps_array[command[1]-1]->t_lumminace.is_full() && first ){                      
-        //             std::unique_ptr<float[]> array = t_lamps_array[command[1]-1]->t_lumminace.get_all();
-        //             for(int i = 0; i < N_POINTS_MINUTE; i++ )
-        //             {
-        //                 std::cout << "Estou a imprimir o array last minute: " << array[i] << std::endl;
-        //             }
-        //             std::cout << "Báu cheio!! :)\n";    
-        //             first = false;
-        //         }
-        //     }
-        // );
-        // last_minute.join();  
-         // ***********TESTE***********
-       
+        // streams
+        if(t_stream && ( t_stream_address == address ) ){ udp_stream( (t_stream_type == 'l') ? luminance : duty_cicle);  }
+
        break;
     }
     case 'c':
@@ -117,15 +103,15 @@ void office::updates_database( char command[], uint8_t size )
             std::cout << "[CLIENT]\t>>\terr\n";
             break;
         }
-        if( t_lamps_array[command[1]-1]->t_cost >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
+        if( t_lamps_array[address-1]->t_cost >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
         // Updates the value in the dataset
-        t_lamps_array[command[1]-1]->t_cost = value;
+        t_lamps_array[address-1]->t_cost = value;
     
-        if(DEBUG) std::cout << "Desk[" << (int)(uint8_t)command[1] << "]\tThe cost value is " << t_lamps_array[command[1]-1]->t_cost << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe cost value is " << t_lamps_array[address-1]->t_cost << "\n";
         break;
     }
     default:
-        //std::cout << "Default at switch " << (int)(uint8_t)command[0] << std::endl;
+        //std::cout << "Default at switch " << (int)(uint8_t)desk << std::endl;
         break;
     }
 }
@@ -200,7 +186,54 @@ float office::get_accumulated_flicker_error()
     return flicker;
 }
 
+/*
+ * Controls stream parameters
+ * return whereas the stream has started 0, if it was stopped correctly 1 or not wrong command -1
+ */
+int office::set_upd_stream( char type, int address, boost::asio::ip::udp::socket *socket, boost::asio::ip::udp::endpoint *endpoint)
+{
+    if(t_stream)   // command to stop stream
+    {   
+        if( t_stream_type == type && t_stream_address == address )
+        {
+            t_stream = false;
+            return 1;    // stoped stream successfully
+        }
+        else
+        {
+             return -1;    // stream was not stoped
+        }
+    }
 
+    // updates data and starts stream;
+    t_socket = socket;
+    t_endpoint = endpoint;
+    t_stream_type = type;
+    t_stream_address = address;
+    t_stream = true;
+    return 0;
+}
+/*
+ * Sends real time data to UDP client
+ */
+ void office::udp_stream( float value )
+ {  
+    std::string str_value =  std::to_string( value );
+    std::string str_time =  std::to_string( t_time_since_restart );
+
+    //std::to_string( t_time_since_restart)
+
+    std::string response =  std::string(1,'s') +  '\t' +  std::string(1,t_stream_type) + '\t'
+                        + std::to_string(t_stream_address) + '\t' + str_value.erase(str_value.size()-5)
+                        + '\t' + str_time.erase(str_time.size()-4);
+
+    t_socket->async_send_to( boost::asio::buffer(response.c_str(),response.size() ), (*t_endpoint),
+        [ response ]( const boost::system::error_code &t_ec, std::size_t len ){ 
+            //std::cout << response << std::endl;
+            // Nice Job :)
+        }
+    );
+ }
 
 /* --------------------------------------------------------------------------------
    |                                  Lamp                                        |

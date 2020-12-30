@@ -15,7 +15,8 @@ communications::communications( boost::asio::io_context *io )
     {
         if(DEBUG) std::cout << t_ec << " Could not open serial port \n";
         set_coms_not_available();
-        return;
+        set_coms_not_available();
+        return ;
     }  
         
     t_serial->set_option(boost::asio::serial_port_base::baud_rate{BAUD_RATE}, t_ec);
@@ -33,7 +34,8 @@ communications::~communications()
 *   Connects to a Arduino and returns the number of desks
 */
 uint8_t communications::has_hub()
-{   
+{    
+    if(!t_coms_available) return 0;
     // std::cout << "Waiting for the arduino's delay ...\n";
     // sleep(2);
     // https://stackoverflow.com/questions/39517133/write-some-vs-write-boost-asio - "Since you're only sending a little data, you don't save much time by returning before all the data's sent.(write_some)"

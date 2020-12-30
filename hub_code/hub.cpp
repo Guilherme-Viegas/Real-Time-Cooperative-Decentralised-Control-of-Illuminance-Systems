@@ -19,12 +19,14 @@ bool hub()
     const int arduinos = 1;
 
     if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'G' )
-    {
-          greeting(arduinos);
+    {   
+        // I'm am an arduino HUB
+        greeting(arduinos);
     }
     else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'E' ) // last message
-    {
-          return false;
+    {   
+        // I am no longer an arduino HUB
+        return false;
     }
     else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'S' )
     {   
