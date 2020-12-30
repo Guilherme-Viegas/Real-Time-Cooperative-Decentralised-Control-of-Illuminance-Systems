@@ -1,41 +1,101 @@
 #include "hub.hpp"
 
-#define BUFFER_SIZE 4
-char welcome[BUFFER_SIZE];
 
 /*
  * Head function, where it will distribute the instruction
  */
-void hub(int num_addr)
-{
-    Serial.readBytes(welcome, BUFFER_SIZE);
+bool hub()
+{   
+
+    int temp = Serial.read();
     
-    if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' )
-      {
-          greeting(num_addr);
-      }
-    else if( welcome[0] == 'g' && welcome[1] == 'l' && welcome[2] == 'i' )
+    if(temp != '+'){
+      //greeting(temp);
+      return;
+    }
+    
+    char welcome[BUFFER_SIZE];
+    Serial.readBytes(welcome, BUFFER_SIZE);
+    const int arduinos = 1;
+
+    if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'G' )
     {
-        // Greeting
-        float2bytes( 78.551 );
-        float2bytes( 13.855 );
+          greeting(arduinos);
+    }
+    else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'E' ) // last message
+    {
+          return false;
+    }
+    else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'S' )
+    {   
+
+        send_time();
+        
+        bool state[arduinos] = {true};
+        for(int a=0; a<arduinos; a++)
+        {
+          Serial.write("+");
+          Serial.write("o");
+          Serial.write(a+1);
+          Serial.write(state[a]);
+          Serial.write('*');
+        }
+
+        float lower_bound_occupied[arduinos] = {3.39};
+        for(int a=0; a<arduinos; a++)
+        {
+          Serial.write("+");
+          Serial.write("O");
+          Serial.write(a+1);
+          float_2_bytes(lower_bound_occupied[a]);
+        }
+
+        float lower_bound_unoccupied[arduinos] = {1.57};
+        for(int a=0; a<arduinos; a++)
+        {
+          Serial.write("+");
+          Serial.write("U");
+          Serial.write(a+1);
+          float_2_bytes(lower_bound_unoccupied[a]);
+        }
+
+        float costs[arduinos] = {1.0};
+        for(int a=0; a<arduinos; a++)
+        {
+          Serial.write("+");
+          Serial.write("c");
+          Serial.write(a+1);
+          float_2_bytes(costs[a]);
+        }
+
+        return true;
+        
     }
     else
     {
         // MISS
-        Serial.write("x");
-        Serial.write(7); // number of arduinos
-        Serial.write(":(");
+        // Serial.write("x");
+        // Serial.write(7); // number of arduinos
+        // Serial.write(":(");
+        Serial.write("+");
+        Serial.write(welcome[0]);
+        Serial.write(welcome[1]);
+        Serial.write(welcome[2]);
+        Serial.write(welcome[3]);
     }
+    
+    return false;
 }
 
 /*
  * This function is used to represent a float number in 2 bytes.
  * 
  * The 12 most significatives bits represents the integer part with resolution 0:4095
- * Thr 4  less significatives bits represents the decimal part with resolution 0:9
+ * The 4  less significatives bits represents the decimal part with resolution 0:9
+ * 
+ * Sends '*' when there is nothing to be said, which corresnponds to 10 in the 4 less significative bits
  */
-void float2bytes(float fnum)
+void float_2_bytes(float fnum)
 {   
     // the maxium admissive value is 4095.94(9)
     fnum = fnum < pow(2,12)-0.05 ? fnum : pow(2,12)-1+0.9;  // 2^12-1 == 4095, 12 bits representation + 4bits to decimal representation(0.1 -> 0.9)
@@ -65,7 +125,20 @@ void greeting(int numLamps)
 {
     // Greeting
     numLamps = numLamps < 0 ? 0 : numLamps > 255 ? 255 : numLamps;  // normalize number of desks.
+    
+    Serial.write("+");
     Serial.write("A");
     Serial.write(numLamps); // number of arduinos
     Serial.write(":)");
+    
+}
+
+// the time spent occupates 2.5 bytes with integer number and 4bit with float
+void send_time()
+{   
+    double time_ = millis() * 1e-3;
+    Serial.write("+");
+    Serial.write('t');
+    Serial.write( ( (unsigned long)round(time_) & 0xFF000)  >> 12 );
+    float_2_bytes( time_ - ((unsigned long)round(time_) & 0xFF000) );
 }

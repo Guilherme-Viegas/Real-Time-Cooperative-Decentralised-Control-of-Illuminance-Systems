@@ -2,9 +2,9 @@
 #include <SPI.h>
 #include <mcp2515.h>
 #include "can_buffer.cpp"
-#include "circular_buffer.h"
 #include "comms.h"
 #include "hub.hpp"
+
 
 
 MCP2515 mcp2515(10);
@@ -88,6 +88,8 @@ int n_messages = 0;
 byte *serial_buffer;
 int serial_buff_size = 0;
 bool im_hub = false;
+bool transmiting = false;
+double counter = 0;
 
 
 long starting_time = 0;
@@ -255,6 +257,7 @@ void setup() {
   
   //pid.setReferenceLux( 30 ); // sets the minimum value in the led ( zero instant )
   //if(pid.has_feedback()){initInterrupt1();}
+  initInterrupt1();
   nodes_addresses = (byte*)malloc(2*sizeof(byte)); //Because we will be address '1', cause '0' is for broadcast
   nodes_addresses[0] = 0;
   nodes_addresses[1] = my_address;
@@ -569,43 +572,16 @@ void loop() {
   //Check messages received from the can-bus  
   check_messages();
 
-  //if(Serial.available()){ hub(number_of_addresses-1); } 
-  
-  if(!DEBUG) {
-    //Check messages received from the Serial bus
-    //Doing it in a while() for now, but surely not the best solution because it stops the code on the while
-    //I'm doint it cause the serial messages are really small (4bytes)
-      while(Serial.available() > 0) { //If received message from RPI via Serial...
-        byte inByte = Serial.read();
-        serial_buff_size++;
-        serial_buffer = (byte*)realloc(serial_buffer, sizeof(byte)*serial_buff_size);
-        serial_buffer[serial_buff_size-1] = inByte;
-      }
-      if(serial_buff_size > 0) {
-        if(serial_buff_size == 3 and char(serial_buffer[0]) == 'R' and char(serial_buffer[1]) == 'P' and char(serial_buffer[2]) == 'i') {
-          //Then I received the msg from Rpi saying I'm the hub...so I send an ACK msg
-          im_hub = true;
-        }
-    
-        serial_buff_size = 0;
-        serial_buffer = (byte*)realloc(serial_buffer, sizeof(byte)*serial_buff_size);
-      }
-  }
+  if(Serial.available()){ hub(); } 
 
+  if (LOOP){
+    //pid.led.setBrightness( pid.getU() );
 
-  /*if (LOOP){
-    if ( Serial.available() ){
-      String work_percentage = Serial.readString();  // read input at PWM pin 'led_pin'
-      pid.setReferenceLux( work_percentage.toFloat() ); // read input value and ajust the reference brightness
-    }  // anytime there is an input
-
-    pid.led.setBrightness( pid.getU() );
-    // simulator
     if(SIMULATOR){
       pid.simulator( true );
       pid.output();
     }
-  }*/
+  }
 }
 
 
@@ -614,4 +590,16 @@ ISR(TIMER1_COMPA_vect)
 { 
   pid.computeFeedbackGain( analogRead( pid.getLdrPin() ) );
   // Serial.println( millis() );
+  if(transmiting)
+    { 
+      counter++;
+      // pwm
+      Serial.write("+");
+      Serial.write("s");
+      Serial.write(1);
+      // float_2_bytes( pid.ldr.luxToOutputVoltage( 5.0*analogRead( pid.getLdrPin() ) / 1023.0, true) );
+      // float_2_bytes( 100.0*pid.getU()/255.0  );
+      float_2_bytes(counter);
+      float_2_bytes(counter);
+    }
 } 
