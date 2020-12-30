@@ -26,9 +26,9 @@ byte my_address;
 /*
  * AINDA NÂO SEI BEM O QUE FAZEM ESTAS
 */
-boolean LOOP = false;
+boolean LOOP = true;
 boolean SIMULATOR = false;
-boolean DEBUG = true;
+boolean DEBUG = false;
 
 long ack_time = 0;
 long starting_time = 0;
@@ -517,7 +517,7 @@ void check_messages(){
 //************** END STATE MACHINE FUNCTIONS ****************
 
 void loop() {
-  frames_arr_size = 0;
+  /*frames_arr_size = 0;
   frames = readMsg(&frames_arr_size);
   
   switch(my_state){
@@ -574,12 +574,12 @@ void loop() {
   }  
 
   //Check messages received from the can-bus  
-  check_messages();
+  check_messages();*/
 
-  if(Serial.available()){ hub(); } 
+  if(Serial.available()){ hub(number_of_addresses - 1); } 
 
   if (LOOP){
-    //pid.led.setBrightness( pid.getU() );
+    pid.led.setBrightness( pid.getU() );
 
     if(SIMULATOR){
       pid.simulator( true );
@@ -596,14 +596,14 @@ ISR(TIMER1_COMPA_vect)
   // Serial.println( millis() );
   if(transmiting)
     { 
-      counter++;
+      //counter++;
       // pwm
       Serial.write("+");
       Serial.write("s");
       Serial.write(1);
-      // float_2_bytes( pid.ldr.luxToOutputVoltage( 5.0*analogRead( pid.getLdrPin() ) / 1023.0, true) );
-      // float_2_bytes( 100.0*pid.getU()/255.0  );
-      float_2_bytes(counter);
-      float_2_bytes(counter);
+      float_2_bytes( pid.ldr.luxToOutputVoltage( 5.0*analogRead( pid.getLdrPin() ) / 1023.0, true) );
+      float_2_bytes( 100.0*pid.getU()/255.0  );
+      //float_2_bytes(counter);
+      //float_2_bytes(counter);
     }
 } 

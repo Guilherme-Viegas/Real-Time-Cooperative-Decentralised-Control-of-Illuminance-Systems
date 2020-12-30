@@ -4,7 +4,7 @@
 /*
  * Head function, where it will distribute the instruction
  */
-bool hub()
+bool hub(int number_of_addresses)
 {   
 
     int temp = Serial.read();
@@ -16,11 +16,11 @@ bool hub()
     
     char welcome[BUFFER_SIZE];
     Serial.readBytes(welcome, BUFFER_SIZE);
-    const int arduinos = 1;
+    //const int arduinos = 1;
 
     if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'G' )
     {
-          greeting(arduinos);
+          greeting(number_of_addresses);
     }
     else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'E' ) // last message
     {
@@ -31,8 +31,8 @@ bool hub()
 
         send_time();
         
-        bool state[arduinos] = {true};
-        for(int a=0; a<arduinos; a++)
+        bool state[number_of_addresses] = {true};
+        for(int a=0; a<number_of_addresses; a++)
         {
           Serial.write("+");
           Serial.write("o");
@@ -41,8 +41,8 @@ bool hub()
           Serial.write('*');
         }
 
-        float lower_bound_occupied[arduinos] = {3.39};
-        for(int a=0; a<arduinos; a++)
+        float lower_bound_occupied[number_of_addresses] = {3.39};
+        for(int a=0; a<number_of_addresses; a++)
         {
           Serial.write("+");
           Serial.write("O");
@@ -50,8 +50,8 @@ bool hub()
           float_2_bytes(lower_bound_occupied[a]);
         }
 
-        float lower_bound_unoccupied[arduinos] = {1.57};
-        for(int a=0; a<arduinos; a++)
+        float lower_bound_unoccupied[number_of_addresses] = {1.57};
+        for(int a=0; a<number_of_addresses; a++)
         {
           Serial.write("+");
           Serial.write("U");
@@ -59,8 +59,8 @@ bool hub()
           float_2_bytes(lower_bound_unoccupied[a]);
         }
 
-        float costs[arduinos] = {1.0};
-        for(int a=0; a<arduinos; a++)
+        float costs[number_of_addresses] = {1.0};
+        for(int a=0; a<number_of_addresses; a++)
         {
           Serial.write("+");
           Serial.write("c");
@@ -73,15 +73,22 @@ bool hub()
     }
     else
     {
-        // MISS
-        // Serial.write("x");
-        // Serial.write(7); // number of arduinos
-        // Serial.write(":(");
-        Serial.write("+");
-        Serial.write(welcome[0]);
-        Serial.write(welcome[1]);
-        Serial.write(welcome[2]);
-        Serial.write(welcome[3]);
+      switch(welcome[0]) {
+        case 'g':{
+          switch(welcome[1]) {
+            case 'l':{
+              
+            }break;
+            default:{
+              
+            }break;
+          }
+        }break;
+        default:{
+          return;
+        }break;  
+      }
+        
     }
     
     return false;
