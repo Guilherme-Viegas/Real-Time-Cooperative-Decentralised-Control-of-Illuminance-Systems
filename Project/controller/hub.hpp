@@ -5,8 +5,6 @@
 #include "Arduino.h"
 #define BUFFER_SIZE 5 // number of char to read plus \0
 
-enum msg_types_hub {get_current_illuminance = 255};
-
 void float_2_bytes(float fnum);
 void greeting(int numLamps);
 bool hub(int number_of_addresses);
