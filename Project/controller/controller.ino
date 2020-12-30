@@ -31,6 +31,7 @@ boolean SIMULATOR = false;
 boolean DEBUG = true;
 
 long ack_time = 0;
+long starting_time = 0;
 /*-------------------------------------|
  * STATE MACHINE OF THE PROGRAM        |
 ---------------------------------------|*/
@@ -91,8 +92,11 @@ bool im_hub = false;
 bool transmiting = false;
 double counter = 0;
 
-
-long starting_time = 0;
+/********************************
+ * GENERIC VARIABLES
+********************************/
+float my_cost = 0;
+float lower_bound_lux = 0;
 
 /*-----------------------------------------------------|
  * FUNCTIONS HEADERS                                     |
