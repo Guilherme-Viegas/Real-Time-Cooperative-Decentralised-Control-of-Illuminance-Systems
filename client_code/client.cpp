@@ -16,15 +16,14 @@ void udp_start_read_server(  ip::udp::socket *client  )
 {
 
     client->async_receive( buffer(udp_message, BUFFER_SIZE),
-        [ = ]( const boost::system::error_code &t_ec, std::size_t bytes_transferred)
+        [ = ]( const boost::system::error_code &err, std::size_t bytes_transferred)
         {   
-            if( !t_ec && bytes_transferred )
+            if( !err && bytes_transferred )
             {
                 std::string command = std::string(udp_message.begin(), udp_message.begin() + bytes_transferred );
-                std::cout << std::fixed << std::setprecision(1);
                 std::cout << command << std::endl;
             }
-            // std::cout << "UDP Server - error: " << t_ec << "\tbytes: " << bytes_transferred << std::endl;
+            // std::cout << "UDP Server - error: " << err << "\tbytes: " << bytes_transferred << std::endl;
 
             udp_start_read_server( client );
         }
@@ -34,15 +33,14 @@ void udp_start_read_server(  ip::udp::socket *client  )
 void tcp_start_read_server(  ip::tcp::socket *client  )
 {
     client->async_receive( buffer(tcp_message, BUFFER_SIZE),
-        [ = ]( const boost::system::error_code &t_ec, std::size_t bytes_transferred)
+        [ = ]( const boost::system::error_code &err, std::size_t bytes_transferred)
         {
-            if( !t_ec && bytes_transferred )
+            if( !err && bytes_transferred )
             {
                 std::string command = std::string(tcp_message.begin(), tcp_message.begin() + bytes_transferred );
-                std::cout << std::fixed<< std::setprecision(1);
                 std::cout << command << std::endl;
             }
-                // std::cout << "TCP Server - error: " << t_ec << "\tbytes: " << bytes_transferred << std::endl;
+                // std::cout << "TCP Server - error: " << err << "\tbytes: " << bytes_transferred << std::endl;
                 tcp_start_read_server( client );
         }
     );
@@ -55,7 +53,7 @@ void udp_start_read_input( boost::asio::posix::stream_descriptor *stm_desc, ip::
     async_read_until( *stm_desc, stm_buff, '\n' ,
         [ = ](const boost::system::error_code & err, std::size_t bytes_transferred) {
             
-            if( !t_ec && bytes_transferred )
+            if( !err && bytes_transferred )
             {
                 int size = stm_buff.size();
                 char command[] {};
@@ -69,7 +67,7 @@ void udp_start_read_input( boost::asio::posix::stream_descriptor *stm_desc, ip::
                 {   
                     client->async_send( buffer(command, strlen(command)),
 
-                        [ = ]( const boost::system::error_code &t_ec, std::size_t len )
+                        [ = ]( const boost::system::error_code &err, std::size_t len )
                         {
                             // Nice Job :)
                         }

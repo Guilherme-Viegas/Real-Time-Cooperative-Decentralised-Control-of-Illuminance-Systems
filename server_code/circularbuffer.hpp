@@ -77,7 +77,7 @@ public:     // this things are public
 
         std::unique_ptr<T[]> ring_out = std::unique_ptr<T[]>(new T[t_array_size]);
         
-        for(int i = 0; i < t_array_size; i++)
+        for(int i = 0; i < (int)t_array_size; i++)
         {
             ring_out[i] = t_ring[ (i+t_tail)%t_array_size ];
         }
