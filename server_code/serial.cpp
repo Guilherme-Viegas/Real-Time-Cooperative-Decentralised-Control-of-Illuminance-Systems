@@ -9,7 +9,7 @@ communications::communications( boost::asio::io_context *io )
 
     t_serial = std::unique_ptr<boost::asio::serial_port> ( new boost::asio::serial_port {*io} );
 
-    t_serial->open( MAC_PORT, t_ec); //connect to port
+    t_serial->open( RPI_PORT, t_ec); //connect to port
 
     if(t_ec)   // problems with serial
     {

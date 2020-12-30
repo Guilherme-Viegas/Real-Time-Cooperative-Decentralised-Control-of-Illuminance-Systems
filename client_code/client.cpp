@@ -88,11 +88,11 @@ int main()
     io_context io;
 
     ip::tcp::socket tcp_socket(io);
-    ip::tcp::endpoint tcp_endpoint( ip::address::from_string("127.0.0.1"), PORT ); // ip::tcp::v4()
+    ip::tcp::endpoint tcp_endpoint( ip::address::from_string("46.189.132.92"), PORT ); // ip::tcp::v4()
     tcp_socket.async_connect(tcp_endpoint, [](const boost::system::error_code& error){} );
 
     ip::udp::socket udp_socket(io);
-    ip::udp::endpoint udp_endpoint( ip::address::from_string("127.0.0.1"), PORT+1 ); // ip::udp::v4()
+    ip::udp::endpoint udp_endpoint( ip::address::from_string("46.189.132.92"), PORT+1 ); // ip::udp::v4()
     udp_socket.async_connect(udp_endpoint, [](const boost::system::error_code& error){} );
 
     boost::asio::posix::stream_descriptor stm_desc { io, ::dup(STDIN_FILENO) };
