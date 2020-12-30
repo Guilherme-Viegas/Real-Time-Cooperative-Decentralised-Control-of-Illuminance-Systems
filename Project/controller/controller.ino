@@ -23,9 +23,6 @@ float b;
 byte my_address;
 
 
-/*
- * AINDA NÂO SEI BEM O QUE FAZEM ESTAS
-*/
 boolean LOOP = false;
 boolean SIMULATOR = false;
 boolean DEBUG = true;
@@ -79,9 +76,6 @@ volatile can_frame_stream cf_stream;
 volatile bool interrupt = false;
 volatile bool mcp2515_overflow = false;
 volatile bool arduino_overflow = false;
-
-//number of messages recieved
-int n_messages = 0;
 
 /********************************
  * RPI COMMUNICATION
@@ -215,6 +209,7 @@ can_frame* readMsg(int *frames_arr_size){
         n_messages++;
         frames = (can_frame*)realloc(frames,sizeof(can_frame)*n_messages);
         frames[n_messages-1] = frame;
+        Serial.println("REC " + String(frame.can_id) + " " + String(frame.data[0]) + " " + String(frame.data[1]));
         cli(); has_data = cf_stream.get( frame ); sei();
     }
     *frames_arr_size = n_messages;
@@ -261,7 +256,7 @@ void setup() {
   
   //pid.setReferenceLux( 30 ); // sets the minimum value in the led ( zero instant )
   //if(pid.has_feedback()){initInterrupt1();}
-  initInterrupt1();
+  //initInterrupt1();
   nodes_addresses = (byte*)malloc(2*sizeof(byte)); //Because we will be address '1', cause '0' is for broadcast
   nodes_addresses[0] = 0;
   nodes_addresses[1] = my_address;
@@ -309,7 +304,7 @@ void w8ing_function(){
       //send broadcast READY_CALIB
       msg_to_send = Ready;
       writeMsg(0, msg_to_send, my_address);
-      num_of_ollehs = 0;
+      //num_of_ollehs = 0;
     }
   }
   //If I received response msg, then there are other nodes on the grid
@@ -334,7 +329,6 @@ void ready_function(){
   avg_pwm = -1;
   //free(pwm_vect);
   //free(my_gains_vect);
-  pwm_vect = (int*)malloc((number_of_addresses - 1)*sizeof(int));
   my_gains_vect = (float*)malloc((number_of_addresses - 1)*sizeof(float));
   my_luminance = -1;
   for(int i=0; i < frames_arr_size; i++){
@@ -365,19 +359,25 @@ void offset_function(){
   //I'm the master and the first node so I enter first here for computing the offsets for all, only once
   pid.led.setBrightness(0); //Turn off myLed
   if(prev_state == ready_for_calib) {
-    msg_to_send = turnOff_led;
-    writeMsg(0, msg_to_send, my_address);
+    if(number_of_addresses > 2) {
+      msg_to_send = turnOff_led;
+      writeMsg(0, msg_to_send, my_address);
+    }
     prev_state = my_state;
     my_state = w8ing_ack;
     ack_time = micros();
+    ack_number = 0;
   } else if( (prev_state == w8ing_ack) && (my_offset < 0) ) { 
     //Now I know all the nodes turned off their led
     my_offset = pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true);
-    msg_to_send = read_offset_value;
-    writeMsg(0, msg_to_send, my_address);
+    if(number_of_addresses > 2) {
+      msg_to_send = read_offset_value;
+      writeMsg(0, msg_to_send, my_address);
+    }
     prev_state = my_state;
     my_state = w8ing_ack;
     ack_time = micros();
+    ack_number = 0;
   } else if( (prev_state == w8ing_ack) && (my_offset >= 0) ) { 
     //Now I know every node computed their offset so I'm for entering calibration state
     prev_state = my_state;
@@ -395,17 +395,23 @@ void w8ing_ack_function(){
     prev_state = my_state;
     my_state = offset_calc;
   } else if( (prev_state == offset_calc) && ( micros() - ack_time > 1000000 ) ) {
-    ack_time = 0;
-    msg_to_send = turnOff_led;
-    writeMsg(0, msg_to_send, my_address);
+    ack_time = micros();
+    ack_number = 0;
+    if(number_of_addresses > 2) {
+      msg_to_send = turnOff_led;
+      writeMsg(0, msg_to_send, my_address);
+    }
   } else if(( ack_number == number_of_addresses-2 ) && ( prev_state == calibration )) {
     ack_number=0; //reset
     prev_state = my_state;
     my_state = calibration;
   } else if( (prev_state == calibration) && ( micros() - ack_time > 1000000 ) ) {
-    ack_time = 0;
-    msg_to_send = read_lux_value;
-    writeMsg(0, msg_to_send, my_address);
+    ack_time = micros();
+    ack_number = 0;
+    if(number_of_addresses > 2) {
+      msg_to_send = read_lux_value;
+      writeMsg(0, msg_to_send, my_address);
+    }
   }
 }
 
@@ -449,11 +455,14 @@ void calib_function(){
     } else if(prev_state == w8ing_ldr_read) {
       //Compute my K
       my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, my_address)-1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
-      msg_to_send = read_lux_value;
-      writeMsg(0, msg_to_send, my_address);
+      if(number_of_addresses > 2) {
+        msg_to_send = read_lux_value;
+        writeMsg(0, msg_to_send, my_address);
+      }
       prev_state = my_state;
       my_state = w8ing_ack;
       ack_time = micros();
+      ack_number = 0;
     } else if(prev_state == w8ing_ack) {
       pid.led.setBrightness(0); //Turn off led again for not disturbing next reads
       //Pass the grenade to the next node if exists (check if I'm the last one)
@@ -462,8 +471,10 @@ void calib_function(){
         my_state = consensus;
       } else {
         master = false;
-        msg_to_send = your_time_master;
-        writeMsg(nodes_addresses[retrieve_index(nodes_addresses, number_of_addresses, my_address) + 1], msg_to_send, my_address); //Send msg to the next node for him to become master
+        if(number_of_addresses > 2) {
+          msg_to_send = your_time_master;
+          writeMsg(nodes_addresses[retrieve_index(nodes_addresses, number_of_addresses, my_address) + 1], msg_to_send, my_address); //Send msg to the next node for him to become master
+        }
       }
     }        
   }
@@ -476,7 +487,7 @@ void calib_function(){
 void check_messages(){
   for(int i=0; i < frames_arr_size; i++) {
     //Check if received msg is from a new entering node...
-    if((frames[i].data[0] == hello) && my_state != w8ing_msg) { 
+    if((frames[i].data[0] == hello) && (my_state != w8ing_msg) && (my_state != booting) ) { 
       bool already_on_addresses = false;
       for(int j=0; j < number_of_addresses; j++) {
         if(frames[i].data[1] == nodes_addresses[j]) {
@@ -491,8 +502,8 @@ void check_messages(){
         bubbleSort(nodes_addresses, number_of_addresses);
       }
       msg_to_send = olleh;
+      delay(1);
       smallMsg(frames[i].data[1], msg_to_send, my_address);
-      delay(2);
     }
     //new node entered and said Ready
     else if((frames[i].data[0] == Ready) && frames[i].can_id == 0 && my_state != w8ing_msg){
