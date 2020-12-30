@@ -1,5 +1,0 @@
-From what I've seen the better pick is for the proportional to be something like 2.2 - 2.5 and the integrative to be something like 0.25-0.3
-
-Bigger integrative gives overshoot and oscilation
-
-Bigger proportional makes it too fast for the integrative part to work
