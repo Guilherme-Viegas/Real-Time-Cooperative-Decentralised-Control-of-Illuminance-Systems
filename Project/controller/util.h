@@ -16,5 +16,6 @@ void bubbleSort(byte arr[], int n);
 void swap(int *xp, int *yp);
 bool isValueInside(byte *vector, int vect_size, byte value);
 byte retrieve_index(byte *vector, int vect_size, byte value);
+float computeNorm(float *vector, int vect_size);
 
 #endif

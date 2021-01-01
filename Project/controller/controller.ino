@@ -45,7 +45,7 @@ state_machine prev_state = booting;
 /*------------------------|
  * TYPE OF MESSAGES       |
 --------------------------|*/
-enum msg_types {hello=1, olleh=2, ack=3, turn_off_led=4, read_offset_value=5, read_gain=6, your_time_master=7};
+enum msg_types {hello=1, olleh=2, ack=3, turn_off_led=4, read_offset_value=5, read_gain=6, your_time_master=7, start_consensus=8};
 msg_types msg_to_send;
 /*-------------------------------------------
  * VARIABLES FOR THE CALIBRATION            |
@@ -97,7 +97,7 @@ Consensus consensus;
  * FUNCTIONS HEADERS                                     |
 -------------------------------------------------------|*/
 MCP2515::ERROR write(uint32_t id, uint32_t val);
-void writeMsg(int id, byte msg_type, byte sender_address, float value = 0);
+void writeMsg(int id, byte msg_type, byte sender_address, byte dimming=-1, byte index=-1, float value=0);
 void smallMsg(int id, byte msg_type, byte sender_address);
 float getValueMsg(can_frame frame);
 can_frame* readMsg(int * frames_arr_size);
@@ -161,7 +161,7 @@ MCP2515::ERROR write(uint32_t id, uint32_t val){
 /*---------------------------------------------------------|
  * Message with no values only msg_type and sender_address |
 -----------------------------------------------------------|*/
-void writeMsg(int id, byte msg_type, byte sender_address, float value = 0){
+void writeMsg(int id, byte msg_type, byte sender_address, byte dimming=-1, byte index=-1, float value = 0){
   if(value){
     //write message with values
     byte* inBytes = (byte*)malloc(2*sizeof(byte));
@@ -174,6 +174,14 @@ void writeMsg(int id, byte msg_type, byte sender_address, float value = 0){
     if ( write( id , val ) != MCP2515::ERROR_OK )
       Serial.println( "\t\t\t\tMCP2515 TX Buf Full" );
     free(inBytes);
+  } else if( (dimming != -1) and (index != -1) ) {
+    //Write msg used for consensus
+    unsigned long val = (unsigned long)msg_type;
+    val += (unsigned long)my_address<<8;
+    val += (unsigned long)dimming<<16;
+    val += (unsigned long)index<<24;
+    if ( write( id , val ) != MCP2515::ERROR_OK )
+      Serial.println( "\t\t\t\tMCP2515 TX Buf Full" );
   }
   else{
     smallMsg(id, msg_type, sender_address);
@@ -349,7 +357,9 @@ void calibration_function() {
         if(my_address == nodes_addresses[number_of_addresses-1]) {
           prev_state = my_state;
           my_state = ready_consensus;
-          consensus.Init(lower_bound_L, my_offset, my_cost, my_gains_vect, number_of_addresses - 1, retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1);
+          consensus.Init(lower_bound_L, my_offset, my_gains_vect, my_cost);
+          msg_to_send = start_consensus;
+          writeMsg(0, msg_to_send, my_address);
         } else {
           master = false;
           if(number_of_addresses > 2) {
@@ -444,6 +454,10 @@ void check_messages(can_frame new_msg){
       my_state = w8ing_ldr_read;
       pid.led.setBrightness(255);
       waiting_time = millis();
+  } else if( new_msg.data[0] == start_consensus) {
+      prev_state = my_state;
+      my_state = ready_consensus;
+      consensus.Init(lower_bound_L, my_offset, my_gains_vect, my_cost);
   }
 }
 
@@ -483,14 +497,21 @@ void loop() {
       calibration_function();
     }break;
     case w8ing_ldr_read:{
-      if( (millis() - waiting_time >= 2000) ) {
+      if( (millis() - waiting_time >= 1000) ) {
         prev_state = my_state;
         my_state = calibration;
         waiting_time = 0;
       }
     }break;
     case ready_consensus:{
-      
+      //TODO:
+      //while(num_iterações < max_iter):
+        //Calcula o seu vetor de dimmings propostos e guarda em dimmings[seu_index]
+        //Enviar e Vai recebendo as propostas dos outros (can_id=0, msg_type=consensus_val, my_address, dimming=x, index) e guarda em dimmings[retrieveIndex(my_address)-1][retrieveIndex(index)-1] = x
+        //Só qnd receber num_consensus_val == (number_of_addresses-2)*3 é que segue (e dá reset)
+        //Calcula o novo vetor de avg
+        //Calcula os novos multiplicadores de lagrange
+        //incrementa num_iterações e segue para a próxima
     }break;
     default:{
       Serial.println("DEFAULT");
