@@ -4,6 +4,7 @@
 #include "can_buffer.cpp"
 #include "comms.h"
 #include "hub.hpp"
+#include "consensus.hpp"
 
 
 
@@ -27,24 +28,25 @@ boolean LOOP = false;
 boolean SIMULATOR = false;
 boolean DEBUG = true;
 
-long ack_time = 0;
-long starting_time = 0;
+/*-------------------------------------|
+ * GENERIC VARIABLES                   |
+---------------------------------------|*/
+float my_cost = 1;
+float lower_bound_L = 20.0;
+
+
 /*-------------------------------------|
  * STATE MACHINE OF THE PROGRAM        |
 ---------------------------------------|*/
-enum state_machine {booting=0, standard=1, w8ing_msg = 2, ready_for_calib=3, offset_calc = 4 ,calibration=5, w8ing_ack=6, consensus = 7, w8ing_ldr_read = 9};
+enum state_machine {booting = 0, w8ing_olleh = 1, standard = 2, w8ing_ack = 3 , turn_off = 4, read_offset = 5, calibration = 6, w8ing_ldr_read = 7, ready_consensus=8};
 state_machine my_state = booting;
 state_machine prev_state = booting;
 
-//number of nodes in ready_for_calib state
-int ready_number=0;
-int num_of_ollehs = 0;
 /*------------------------|
  * TYPE OF MESSAGES       |
 --------------------------|*/
-enum msg_types {hello=0, olleh=1, Ready=2, read_offset_value=3, read_lux_value = 4, turnOn_led=5, turnOff_led=6, your_time_master=7, ACK=8, start_consensus = 9};
+enum msg_types {hello=1, olleh=2, ack=3, turn_off_led=4, read_offset_value=5, read_gain=6, your_time_master=7};
 msg_types msg_to_send;
-int ack_number=0;
 /*-------------------------------------------
  * VARIABLES FOR THE CALIBRATION            |
 *-------------------------------------------*/
@@ -52,24 +54,20 @@ bool master = false;
 
 //L_i = [ki1, ki2, ..., kiN]^T*[d_avg, ..., di, ..., d_avg] + o_i
 float my_offset = -1;
-int my_pwm = -1;
-int avg_pwm = -1;
-int *pwm_vect;
-float *my_gains_vect;
-float my_luminance = -1;
+float my_gains_vect[3] = {0};
 
 /*--------------------------------------------|
  * CAN BUS COMMUNICATION USEFUL VARIABLES     |
 ----------------------------------------------|*/
 //array of variable size depending on number of nodes
-byte *nodes_addresses;  
+byte nodes_addresses[4];  
 int number_of_addresses = 0;
 
-//array with the upcoming messages
-int frames_arr_size = 0;
-can_frame *frames;
 
-//circular buffer that saves the last 10 messages
+can_frame new_msgs[20];
+int frames_arr_size = 0;
+
+//circular buffer that saves the last 20 messages
 volatile can_frame_stream cf_stream;
 
 //flags
@@ -77,6 +75,10 @@ volatile bool interrupt = false;
 volatile bool mcp2515_overflow = false;
 volatile bool arduino_overflow = false;
 
+long waiting_time = 0;
+
+long ack_time = 0;
+int ack_number = 0;
 /********************************
  * RPI COMMUNICATION
 ********************************/
@@ -87,10 +89,9 @@ bool transmiting = false;
 double counter = 0;
 
 /********************************
- * GENERIC VARIABLES
+ * CONSENSUS VARIABLES
 ********************************/
-float my_cost = 0;
-float lower_bound_lux = 0;
+Consensus consensus;
 
 /*-----------------------------------------------------|
  * FUNCTIONS HEADERS                                     |
@@ -99,10 +100,7 @@ MCP2515::ERROR write(uint32_t id, uint32_t val);
 void writeMsg(int id, byte msg_type, byte sender_address, float value = 0);
 void smallMsg(int id, byte msg_type, byte sender_address);
 float getValueMsg(can_frame frame);
-can_frame* readMsg(int *frames_arr_size);
-void initCalibration();
-void booting_function(int msg_to_send);
-void initCalibration(float **offset);
+can_frame* readMsg(int * frames_arr_size);
 
 /*------------------------------------|
  * PROGRAM BEGINS                     |
@@ -181,40 +179,35 @@ void writeMsg(int id, byte msg_type, byte sender_address, float value = 0){
     smallMsg(id, msg_type, sender_address);
   }
 }
+
 void smallMsg(int id, byte msg_type, byte sender_address) {
   int val = (sender_address<<8)+msg_type;  //Convert 2 bytes into 1 int, with byte 0 being msg_type and byte 1 being sender addr
   if ( write( id , val ) != MCP2515::ERROR_OK )
       Serial.println( "\t\t\t\tMCP2515 TX Buf Full" );
 }
 
-can_frame* readMsg(int *frames_arr_size){
-  if ( interrupt ) {
-    interrupt = false;
-    can_frame *frames;
-    int n_messages = 0;
-    if ( mcp2515_overflow ) {
-      Serial.println( "\t\t\t\tMCP2516 RX Buf Overflow" );
-      mcp2515_overflow = false;
-    }
-
-    if( arduino_overflow ) {
-      Serial.println( "\t\t\t\tArduino Buffers Overflow" );
-      arduino_overflow = false;
-    }
-    
-    can_frame frame;
-    bool has_data;
-    cli(); has_data = cf_stream.get( frame ); sei();
-    while( has_data ){
-        n_messages++;
-        frames = (can_frame*)realloc(frames,sizeof(can_frame)*n_messages);
-        frames[n_messages-1] = frame;
-        Serial.println("REC " + String(frame.can_id) + " " + String(frame.data[0]) + " " + String(frame.data[1]));
-        cli(); has_data = cf_stream.get( frame ); sei();
-    }
-    *frames_arr_size = n_messages;
-    return frames;
+void readMsg(int *frames_size, can_frame frames[20]){
+  int counter = 0;
+  if ( mcp2515_overflow ) {
+    Serial.println( "\t\t\t\tMCP2516 RX Buf Overflow" );
+    mcp2515_overflow = false;
   }
+
+  if( arduino_overflow ) {
+    Serial.println( "\t\t\t\tArduino Buffers Overflow" );
+    arduino_overflow = false;
+  }
+  
+  bool has_data;
+  can_frame frame;
+  cli(); has_data = cf_stream.get( frame ); sei();
+  while( has_data ) {
+      counter++;
+      frames[counter-1] = frame;
+      Serial.println("REC: " + String(frames[counter-1].can_id) + " " + String(frames[counter-1].data[0]) + " " + String(frames[counter-1].data[1]));
+      cli(); has_data = cf_stream.get( frame ); sei();
+    }
+  *frames_size = counter;
 }
 
 void setup() {
@@ -244,23 +237,20 @@ void setup() {
   mcp2515.setBitrate(CAN_1000KBPS, MCP_16MHZ);
   mcp2515.setNormalMode();
   
-  delay(500);
-  
   pid.ldr.setGain( pid.getLedPin(), m, b );
   pid.ldr.t_tau_up.setParametersABC( 29.207246, -0.024485, 11.085226); // values computed in the python file
   pid.ldr.t_tau_down.setParametersABC( 15.402250,  -0.015674, 8.313158); // values computed in the python file
-  
-  delay(500);
+
   if(DEBUG)
     Serial.println("Set up completed");
   
   //pid.setReferenceLux( 30 ); // sets the minimum value in the led ( zero instant )
   //if(pid.has_feedback()){initInterrupt1();}
   //initInterrupt1();
-  nodes_addresses = (byte*)malloc(2*sizeof(byte)); //Because we will be address '1', cause '0' is for broadcast
   nodes_addresses[0] = 0;
   nodes_addresses[1] = my_address;
   number_of_addresses = 2;  
+  delay(8000);
 }
 
 /*
@@ -282,284 +272,225 @@ float getValueMsg(can_frame frame){
 /*-----------------------------------------------|
   Function when the node is in booting state     |
 -------------------------------------------------|*/
-void booting_function(msg_types msg_to_send){
+void booting_function(){
   msg_to_send = hello;
   writeMsg(0, msg_to_send, my_address);
   prev_state = my_state;
-  my_state = w8ing_msg;
+  my_state = w8ing_olleh;
 }
 
 /*-----------------------------------------------|
   Function when tht node is waiting for ollehs   |
 -------------------------------------------------|*/
-void w8ing_function(){
-  if(micros() - starting_time >= 2000000){
-    //Time has passed, I'm the only node on grid and I'm ready for calib
+void w8ing_olleh_function(){
+  if(millis() - waiting_time >= 5000){
+    bubbleSort(nodes_addresses, number_of_addresses);
     prev_state = my_state;
-    my_state = ready_for_calib;
-  
-    if(num_of_ollehs > 0) {
-      number_of_addresses = 2 + num_of_ollehs;
-      bubbleSort(nodes_addresses, number_of_addresses);
-      //send broadcast READY_CALIB
-      msg_to_send = Ready;
-      writeMsg(0, msg_to_send, my_address);
-      //num_of_ollehs = 0;
-    }
-  }
-  //If I received response msg, then there are other nodes on the grid
-  for(int i=0; i < frames_arr_size; i++) {
-    if( (frames[i].data[0] == olleh) and ( frames[i].can_id == my_address ) ) {
-      num_of_ollehs += 1;
-      // (2 + num_responses) because nodes_addresses[0] is for broadcast and nodes_addresses[1] is my addr
-      nodes_addresses = (byte*)realloc(nodes_addresses, (2 + num_of_ollehs)*sizeof(byte)); 
-      //So 1st received response goes to index 2 cause 0 and 1 is for broadcast and my address
-      nodes_addresses[num_of_ollehs + 1] = frames[i].data[1];
-    }
-  }
-}
-
-/*-----------------------------------------------------------------------------|
-  Function when the node is waiting all the nodes to be ready for calibration  |
--------------------------------------------------------------------------------|*/
-void ready_function(){
-  //Reset calibration variables
-  my_offset = -1;
-  my_pwm = -1;
-  avg_pwm = -1;
-  //free(pwm_vect);
-  //free(my_gains_vect);
-  my_gains_vect = (float*)malloc((number_of_addresses - 1)*sizeof(float));
-  my_luminance = -1;
-  for(int i=0; i < frames_arr_size; i++){
-    if(frames[i].data[0] == Ready && frames[i].can_id == my_address){
-      ready_number+=1;
-    }
-  }
-  if(ready_number==number_of_addresses-2){
     if(nodes_addresses[1] == my_address) { //If i'm the 1st node on addr vector then I run offset computation once and only once
       master = true;
-      prev_state = my_state;
-      my_state = offset_calc;
+      my_state = turn_off;
     }
     else {
       master = false;
-      prev_state = my_state;
-      my_state = calibration; //All the other nodes enter calibration state
+      my_state = standard; //All the other nodes enter calibration state
     }
-    ready_number=0;
+    waiting_time = 0;
+    
+  }
+}
+
+/*-----------------------------------------------|
+  Ask for them to turn off the led               |
+-------------------------------------------------|*/
+void turn_off_led_function() {
+  pid.led.setBrightness(0); //Turn off myLed
+  if(number_of_addresses > 2) {
+      msg_to_send = turn_off_led;
+      writeMsg(0, msg_to_send, my_address);
+   }
+   prev_state = my_state;
+   my_state = w8ing_ack;
+   ack_time = millis();
+   ack_number = 0;
+}
+
+/*-----------------------------------------------|
+  Ask for them to read offset                    |
+-------------------------------------------------|*/
+void read_offset_function() {
+  my_offset = pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true);
+  if(number_of_addresses > 2) {
+    msg_to_send = read_offset_value;
+    writeMsg(0, msg_to_send, my_address);
+  }
+  prev_state = my_state;
+  my_state = w8ing_ack;
+  ack_time = millis();
+  ack_number = 0;
+}
+
+/*-----------------------------------------------|
+  For generating gains matrix                    |
+-------------------------------------------------|*/
+void calibration_function() {
+  if(master) {
+    if(prev_state == w8ing_ldr_read) {
+      my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, my_address)-1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
+      if(number_of_addresses > 2) {
+        msg_to_send = read_gain;
+        writeMsg(0, msg_to_send, my_address);
+      }
+      prev_state = my_state;
+      my_state = w8ing_ack;
+      ack_time = millis();
+      ack_number = 0;
+    } else if( prev_state == w8ing_ack ) {
+        pid.led.setBrightness(0);
+        if(my_address == nodes_addresses[number_of_addresses-1]) {
+          prev_state = my_state;
+          my_state = ready_consensus;
+          consensus.Init(lower_bound_L, my_offset, my_cost, my_gains_vect, number_of_addresses - 1, retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1);
+        } else {
+          master = false;
+          if(number_of_addresses > 2) {
+            msg_to_send = your_time_master;
+            writeMsg(nodes_addresses[retrieve_index(nodes_addresses, number_of_addresses, my_address) + 1], msg_to_send, my_address); //Send msg to the next node for him to become master
+          }
+          prev_state = my_state;
+          my_state = standard;
+        }
+    }
   }
 }
 
 
 /*-----------------------------------------------|
-  Function when the node is computing offset     |
+  Waiting for ACKs                               |
 -------------------------------------------------|*/
-void offset_function(){
-  //I'm the master and the first node so I enter first here for computing the offsets for all, only once
-  pid.led.setBrightness(0); //Turn off myLed
-  if(prev_state == ready_for_calib) {
-    if(number_of_addresses > 2) {
-      msg_to_send = turnOff_led;
-      writeMsg(0, msg_to_send, my_address);
-    }
-    prev_state = my_state;
-    my_state = w8ing_ack;
-    ack_time = micros();
-    ack_number = 0;
-  } else if( (prev_state == w8ing_ack) && (my_offset < 0) ) { 
-    //Now I know all the nodes turned off their led
-    my_offset = pid.ldr.luxToOutputVoltage(pid.ldr.getOutputVoltage(), true);
-    if(number_of_addresses > 2) {
-      msg_to_send = read_offset_value;
-      writeMsg(0, msg_to_send, my_address);
-    }
-    prev_state = my_state;
-    my_state = w8ing_ack;
-    ack_time = micros();
-    ack_number = 0;
-  } else if( (prev_state == w8ing_ack) && (my_offset >= 0) ) { 
-    //Now I know every node computed their offset so I'm for entering calibration state
-    prev_state = my_state;
-    my_state = calibration; 
-  }
-}
-
-/*------------------------------------------------------|
-  Function when the node is waiting for all the acks    |
---------------------------------------------------------|*/
-
-void w8ing_ack_function(){
-  if( ( ack_number == number_of_addresses-2 ) && ( prev_state == offset_calc ) ){
-    ack_number=0; //reset
-    prev_state = my_state;
-    my_state = offset_calc;
-  } else if( (prev_state == offset_calc) && ( micros() - ack_time > 1000000 ) ) {
-    ack_time = micros();
-    ack_number = 0;
-    if(number_of_addresses > 2) {
-      msg_to_send = turnOff_led;
-      writeMsg(0, msg_to_send, my_address);
-    }
-  } else if(( ack_number == number_of_addresses-2 ) && ( prev_state == calibration )) {
-    ack_number=0; //reset
-    prev_state = my_state;
-    my_state = calibration;
-  } else if( (prev_state == calibration) && ( micros() - ack_time > 1000000 ) ) {
-    ack_time = micros();
-    ack_number = 0;
-    if(number_of_addresses > 2) {
-      msg_to_send = read_lux_value;
-      writeMsg(0, msg_to_send, my_address);
-    }
-  }
-}
-
-/*------------------------------------------------------|
-  Function to calibrate K                               |
---------------------------------------------------------|*/
-
-void calib_function(){
-  //I'm not the first addr so when I'm the master I only do the calibration part of entire Calibration
-  if(!master) { 
-    //I'm not master, so in calibration I need to check for receiving msgs from the master node
-    for(int i=0; i < frames_arr_size; i++) {
-      if(frames[i].data[0] == turnOff_led) {
-          pid.led.setBrightness(0);
-          msg_to_send = ACK;
-          writeMsg(frames[i].data[1], msg_to_send, my_address);
-      } else if(frames[i].data[0] == read_offset_value) {
-          my_offset = pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true);
-          msg_to_send = ACK;
-          writeMsg(frames[i].data[1], msg_to_send, my_address);
-      } else if(frames[i].data[0] == read_lux_value) {
-          //Compute my K
-          my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, byte(frames[i].data[1])) - 1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
-          msg_to_send = ACK;
-          writeMsg(frames[i].data[1], msg_to_send, my_address);
-      } else if( (frames[i].data[0] == your_time_master) && (my_address == frames[i].can_id) ) {
-          master = true;
-          prev_state = offset_calc; //Simulate I was in offset_calc(but I was not)
-      } else if(frames[i].data[0] == start_consensus) {
-        prev_state = my_state;
-        my_state = consensus; 
-      }
-    }
-  } else { 
-    //If this is my round of being the master
-    if( prev_state == offset_calc ) {
-      pid.led.setBrightness(255); //I know that everyone's led is turned off so I can turn on mine
+void w8ing_ack_function() {
+  if( (ack_number == number_of_addresses-2) and (prev_state == turn_off) ) {
+      ack_number = 0;
       prev_state = my_state;
-      my_state = w8ing_ldr_read;
-      starting_time = micros();
-    } else if(prev_state == w8ing_ldr_read) {
-      //Compute my K
-      my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, my_address)-1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
+      my_state = read_offset;
+  } else if( (prev_state == turn_off) and (millis() - ack_time > 3000) ) {
       if(number_of_addresses > 2) {
-        msg_to_send = read_lux_value;
+        msg_to_send = turn_off_led;
         writeMsg(0, msg_to_send, my_address);
       }
-      prev_state = my_state;
-      my_state = w8ing_ack;
-      ack_time = micros();
       ack_number = 0;
-    } else if(prev_state == w8ing_ack) {
-      pid.led.setBrightness(0); //Turn off led again for not disturbing next reads
-      //Pass the grenade to the next node if exists (check if I'm the last one)
-      if(my_address == nodes_addresses[number_of_addresses-1]) {
-        prev_state = my_state;
-        my_state = consensus;
-      } else {
-        master = false;
-        if(number_of_addresses > 2) {
-          msg_to_send = your_time_master;
-          writeMsg(nodes_addresses[retrieve_index(nodes_addresses, number_of_addresses, my_address) + 1], msg_to_send, my_address); //Send msg to the next node for him to become master
-        }
+      ack_time = millis();  
+  } else if( (ack_number == number_of_addresses-2) and (prev_state == read_offset) ) {
+      ack_number = 0;
+      prev_state = my_state;
+      my_state = w8ing_ldr_read;
+      pid.led.setBrightness(255);
+      waiting_time = millis();
+  } else if( (prev_state == read_offset) and (millis() - ack_time > 3000) ) {
+      if(number_of_addresses > 2) {
+          msg_to_send = read_offset_value;
+          writeMsg(0, msg_to_send, my_address);
       }
-    }        
+      ack_number = 0;
+      ack_time = millis();
+  } else if( (ack_number == number_of_addresses-2) and (prev_state == calibration) ) {
+      ack_number = 0;
+      prev_state = my_state;
+      my_state = calibration;
+  } else if( (prev_state == calibration) and (millis() - ack_time > 3000) ) {
+      if(number_of_addresses > 2) {
+          msg_to_send = read_gain;
+          writeMsg(0, msg_to_send, my_address);
+      }
+      ack_number = 0;
+      ack_time = millis();
   }
 }
+
 
 /*------------------------------------------------------|
   Function check end loop messages                      |
 --------------------------------------------------------|*/
 
-void check_messages(){
-  for(int i=0; i < frames_arr_size; i++) {
-    //Check if received msg is from a new entering node...
-    if((frames[i].data[0] == hello) && (my_state != w8ing_msg) && (my_state != booting) ) { 
-      bool already_on_addresses = false;
-      for(int j=0; j < number_of_addresses; j++) {
-        if(frames[i].data[1] == nodes_addresses[j]) {
-          already_on_addresses = true;
-        }
-      }
-      //If this address have never been to my addresse's vector
-      if(already_on_addresses == false) { 
-        number_of_addresses += 1;
-        nodes_addresses = (byte*)realloc(nodes_addresses, number_of_addresses*sizeof(byte));
-        nodes_addresses[number_of_addresses-1] = frames[i].data[1];
-        bubbleSort(nodes_addresses, number_of_addresses);
-      }
-      msg_to_send = olleh;
-      delay(1);
-      smallMsg(frames[i].data[1], msg_to_send, my_address);
+void check_messages(can_frame new_msg){
+  if( new_msg.data[0] == hello ) { 
+    if( !isValueInside(nodes_addresses, number_of_addresses, new_msg.data[1]) ) {
+      number_of_addresses++;
+      nodes_addresses[number_of_addresses-1] = new_msg.data[1];
     }
-    //new node entered and said Ready
-    else if((frames[i].data[0] == Ready) && frames[i].can_id == 0 && my_state != w8ing_msg){
-      msg_to_send = Ready;
+    msg_to_send = olleh;
+    writeMsg(new_msg.data[1], msg_to_send, my_address);
+  } else if( (new_msg.data[0] == olleh) and ( new_msg.can_id == my_address ) ) {
+      if( !isValueInside(nodes_addresses, number_of_addresses, new_msg.data[1]) ) {
+        number_of_addresses++;
+        nodes_addresses[number_of_addresses-1] = new_msg.data[1];
+      }
+  } else if( (new_msg.data[0] == ack) and ( new_msg.can_id == my_address ) ) {
+      ack_number++;
+  } else if( new_msg.data[0] == turn_off_led ) {
+      pid.led.setBrightness(0);
+      msg_to_send = ack;
+      writeMsg(new_msg.data[1], msg_to_send, my_address);
+  } else if( new_msg.data[0] == read_offset_value  ) {
+      my_offset = pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true);
+      msg_to_send = ack;
+      writeMsg(new_msg.data[1], msg_to_send, my_address);
+  } else if( new_msg.data[0] == read_gain  ) {
+      my_gains_vect[retrieve_index(nodes_addresses, number_of_addresses, new_msg.data[1]) - 1] = ( pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true) - my_offset ) / 255.0;
+      msg_to_send = ack;
+      writeMsg(new_msg.data[1], msg_to_send, my_address);
+  } else if( (new_msg.data[0] == your_time_master) and (new_msg.can_id == my_address) ) {
+      master = true;
       prev_state = my_state;
-      my_state = ready_for_calib;
-      ready_number += 1;
-      for(int i=1; i<number_of_addresses;i++){
-        if(nodes_addresses[i] != my_address){
-          //send Ready messages for everybody
-          writeMsg(nodes_addresses[i], msg_to_send, my_address);
-        }
-      }
-    }
-    else if((frames[i].data[0] == ACK) && frames[i].can_id == my_address){
-      //ack number
-      ack_number += 1;
-    }
+      my_state = w8ing_ldr_read;
+      pid.led.setBrightness(255);
+      waiting_time = millis();
   }
 }
 
 //************** END STATE MACHINE FUNCTIONS ****************
 
 void loop() {
-  frames_arr_size = 0;
-  frames = readMsg(&frames_arr_size);
-  
+  if(interrupt) {
+    interrupt = false;
+    readMsg(&frames_arr_size, new_msgs);
+    for(int i=0; i < frames_arr_size; i++) {
+      check_messages(new_msgs[i]);
+    }
+    frames_arr_size = 0;
+  }
+    
   switch(my_state){
     case booting:{
-      booting_function(msg_to_send);
-      starting_time = micros();
+      booting_function();
+      waiting_time = millis();
     }break;
-    case w8ing_msg:{
-      w8ing_function();
-    }break; 
-    case ready_for_calib:{
-      ready_function();
+    case standard:{
+      
     }break;
-    case offset_calc:{ 
-      offset_function();
-    }break;
-    case calibration:{ 
-      calib_function();
+    case w8ing_olleh:{
+      w8ing_olleh_function();
     }break;
     case w8ing_ack:{
       w8ing_ack_function();
     }break;
-    case consensus:{
-      
+    case turn_off:{
+      turn_off_led_function();
     }break;
-    case w8ing_ldr_read:{ //This because we can't use delay(50) while reading from ldr
-      if( (micros() - starting_time >= 4000000) && (prev_state == calibration) ) {
+    case read_offset:{
+      read_offset_function();
+    }break;
+    case calibration:{
+      calibration_function();
+    }break;
+    case w8ing_ldr_read:{
+      if( (millis() - waiting_time >= 2000) ) {
         prev_state = my_state;
         my_state = calibration;
-        starting_time = 0;
+        waiting_time = 0;
       }
+    }break;
+    case ready_consensus:{
+      
     }break;
     default:{
       Serial.println("DEFAULT");
@@ -584,10 +515,7 @@ void loop() {
     Serial.println();
   }  
 
-  //Check messages received from the can-bus  
-  check_messages();
-
-  if(Serial.available()){ hub(); } 
+  //if(Serial.available()){ hub(); } 
 
   if (LOOP){
     //pid.led.setBrightness( pid.getU() );

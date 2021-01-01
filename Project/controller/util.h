@@ -14,6 +14,7 @@ void initInterrupt1();
 ISR(TIMER1_COMPA_vect);
 void bubbleSort(byte arr[], int n);
 void swap(int *xp, int *yp);
+bool isValueInside(byte *vector, int vect_size, byte value);
 byte retrieve_index(byte *vector, int vect_size, byte value);
 
 #endif

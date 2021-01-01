@@ -4,7 +4,7 @@
 
 class can_frame_stream {
     //10 slots buffer - increase if needed
-    static const int buffsize = 10;
+    static const int buffsize = 20;
     can_frame cf_buffer[ buffsize ];
     int read_index; //where to read next message
     int write_index; //where to write next message

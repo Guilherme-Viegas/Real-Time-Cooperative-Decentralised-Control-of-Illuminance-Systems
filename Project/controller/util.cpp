@@ -52,7 +52,16 @@ void bubbleSort(byte arr[], int n)
     for (j = 0; j < n-i-1; j++)  
         if (arr[j] > arr[j+1])  
             swap(&arr[j], &arr[j+1]);  
-} 
+}
+
+bool isValueInside(byte *vector, int vect_size, byte value) {
+  for(byte i = 0; i < vect_size; i++ ) {
+    if(vector[i] == value) {
+      return true;
+    }
+  }
+  return false;
+}
 
 byte retrieve_index(byte *vector, int vect_size, byte value) {
   for(byte i = 0; i < vect_size; i++ ) {
