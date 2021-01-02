@@ -9,7 +9,7 @@ communications::communications( boost::asio::io_context *io )
 
     t_serial = std::unique_ptr<boost::asio::serial_port> ( new boost::asio::serial_port {*io} );
 
-    t_serial->open( RPI_PORT, t_ec); //connect to port
+    t_serial->open( MAC_PORT, t_ec); //connect to port
 
     if(t_ec)   // problems with serial
     {
@@ -83,7 +83,8 @@ void communications::read_async_command( office *the_office )
 {   // https://web.fe.up.pt/~ee96100/projecto/Tabela%20ascii.htm
     if(!t_coms_available) return;
 
-    async_read( *t_serial, t_buf_command, [ this, the_office ]( const boost::system::error_code &t_ec, std::size_t len )
+    async_read( *t_serial, t_buf_command, 
+        [ this, the_office ]( const boost::system::error_code &t_ec, std::size_t len )
         {   
 
             // creats command variable

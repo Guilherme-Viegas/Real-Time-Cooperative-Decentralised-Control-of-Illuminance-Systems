@@ -24,7 +24,6 @@ private:    // this things are private
     // performence metrics
     float t_accumulated_energy_consumption = 0.0;
     float t_instant_power = 0.0;
-    float t_nominal_power = 1.0;
     float t_accumulated_visibility_error = 0.0;
     float t_accumulated_flicker_error = 0.0;
 
@@ -42,7 +41,7 @@ public:     // this things are public
     bool t_state = false;   // false - the desk in unoccupied, true - the desk is occupied
     float t_occupied_value = -1.0;
     float t_unoccupied_value = -2.0;
-    float t_cost = -1.0;
+    float t_nominal_power = -1.0;
     circular_array<float> t_lumminace{ N_POINTS_MINUTE };
     circular_array<float> t_duty_cicle{ N_POINTS_MINUTE };
 

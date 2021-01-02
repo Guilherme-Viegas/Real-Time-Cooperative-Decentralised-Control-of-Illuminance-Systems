@@ -47,49 +47,25 @@ public:
 
 using boost::asio::ip::tcp;
 
-class tcp_connection : public boost::enable_shared_from_this<tcp_connection>
+class tcp_connection//: public boost::enable_shared_from_this<tcp_connection>
 {
 
 private:
-    tcp_connection(boost::asio::io_service *io):
-        t_socket( *io )
-    {
-    }
 
-
-    void handle_write()
-    {
-    }
-
-    tcp::endpoint t_remote_endpoint;
     tcp::socket t_socket;
-    std::string t_message;
+    office *t_database;
 
 public:
-    
-    ~tcp_connection(){ t_socket.close(); }
 
-    typedef boost::shared_ptr<tcp_connection> pointer;
-    static pointer create(boost::asio::io_service *io)
-    {
-        return pointer( new tcp_connection( io ) );
-    }
+    tcp_connection(boost::asio::io_service *io, office *database);
 
-    tcp::socket &socket()
-    {
-        return t_socket;
-    }
+    tcp::socket &socket(){ return t_socket; }
 
-    void start()
-    {
-        t_message = "TCP COM!2";
+    boost::array<char, 1024> t_recv_buffer;
 
-        t_socket.async_send( boost::asio::buffer(t_message, 9),
-            [ this ]( const boost::system::error_code &t_ec, std::size_t len ){ 
-                std::cout << "Ja mandei uma mensagem! " << t_message.size() << std::endl;
-            }
-        );
-    }
+    void start_receive();
+    void handle_receive(const boost::system::error_code& error,  size_t bytes_transferred);
+    void send_acknowledgement( bool ack_err );
 };
 
 class tcp_server
@@ -97,7 +73,7 @@ class tcp_server
 private:
     void start_accept();
 
-    void handle_accept(tcp_connection::pointer new_connection, const boost::system::error_code &error);
+    // void handle_accept(boost::shared_ptr<tcp_connection> new_connection, const boost::system::error_code &error);
     
     office *t_database;
 

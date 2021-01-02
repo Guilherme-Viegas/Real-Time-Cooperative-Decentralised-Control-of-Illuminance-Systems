@@ -29,10 +29,10 @@ void office::updates_database( char command[], uint8_t size )
     float value = 0.0;
     //static bool first = true;
 
-    char desk = command[0];
+    char order = command[0];
     int address = (int)(uint8_t)command[1];
 
-    switch (desk)
+    switch (order)
     {
     case 't':
     {
@@ -50,12 +50,15 @@ void office::updates_database( char command[], uint8_t size )
     case 'O':
     {
         value = bytes_2_float(command[2], command[3]);
-        if( value < t_lamps_array[address-1]->t_unoccupied_value )
+        if( value == 0.15 )
         {
             std::cout << "[CLIENT]\t>>\terr\n";
             break;
         }
-        if( t_lamps_array[address-1]->t_unoccupied_value >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
+        else if( t_lamps_array[address-1]->t_occupied_value != -1.0 )
+        {
+            std::cout << "[CLIENT]\t>>\tack\n";
+        }
         // Updates the value in the dataset
         t_lamps_array[address-1]->t_occupied_value = value;
     
@@ -65,12 +68,15 @@ void office::updates_database( char command[], uint8_t size )
     case 'U':
     {
         value = bytes_2_float(command[2], command[3]);
-        if( value > t_lamps_array[address-1]->t_occupied_value )
+        if( value == 0.15 )
         {
             std::cout << "[CLIENT]\t>>\terr\n";
             break;
         }
-        if( t_lamps_array[address-1]->t_unoccupied_value >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
+        else if( t_lamps_array[address-1]->t_unoccupied_value != -2.0 )
+        {
+            std::cout << "[CLIENT]\t>>\tack\n";
+        }
         // Updates the value in the dataset
         t_lamps_array[address-1]->t_unoccupied_value = value;
 
@@ -98,16 +104,19 @@ void office::updates_database( char command[], uint8_t size )
     case 'c':
     {
         value = bytes_2_float(command[2], command[3]);
-        if( value == 0 )
+        if( value == 0.15 )
         {
             std::cout << "[CLIENT]\t>>\terr\n";
             break;
         }
-        if( t_lamps_array[address-1]->t_cost >= 0 ){ std::cout << "[CLIENT]\t>>\tack\n"; }
+        else if( t_lamps_array[address-1]->t_nominal_power != -1.0 )
+        {
+            std::cout << "[CLIENT]\t>>\tack\n";
+        }
         // Updates the value in the dataset
-        t_lamps_array[address-1]->t_cost = value;
+        t_lamps_array[address-1]->t_nominal_power = value;
     
-        if(DEBUG) std::cout << "Desk[" << address << "]\tThe cost value is " << t_lamps_array[address-1]->t_cost << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe cost value is " << t_lamps_array[address-1]->t_nominal_power << "\n";
         break;
     }
     default:
@@ -124,10 +133,10 @@ float office::bytes_2_float(uint8_t most_significative_bit, uint8_t less_signifi
     float decimal_number = less_significative_bit & 0xF;   // gets 4 less significatives bits
     float integer_number = (most_significative_bit << 4) + ((less_significative_bit & 0xF0) >> 4);   // gets 12 most significatives bits
 
-    if(decimal_number == 15 )    // invalid read detected
+    if(decimal_number == 15.0 )    // invalid read detected
     {
         if(DEBUG) std::cout << "INVALID NUMBER - number must be positive\t";
-        decimal_number = 0;
+        return decimal_number*0.01;
     }
     
     // std::cout << "integer " << integer_number << " decimal " <<decimal_number << std::endl;
