@@ -74,7 +74,7 @@ byte retrieve_index(byte *vector, int vect_size, byte value) {
 
 float computeNorm(float *vector, int vect_size) {
   float norm = 0;
-  for(int i=0; i < vect_size; i++) {
+  for(byte i=0; i < vect_size; i++) {
     norm += pow(vector[i], 2);
   }
   norm = pow(norm, 0.5);

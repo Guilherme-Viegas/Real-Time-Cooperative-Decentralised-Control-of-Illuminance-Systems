@@ -28,71 +28,6 @@ void LdrController::setGain( byte led_pin, float m, float b ){
 }
 
 /*
- * Computes the linear relation between lux and pwm
- *
- */
-void LdrController::computeGain( byte led_pin ){ 
-
-  byte pwm = 0; // pwm to be written in led
-  float flag = 1; // flag is 1 if the direction is up and 0 if it is down
-  float lux = 0.0;  // lux computed 
-  float voltageOut = 0.0; // voltage read in analog pin
-
-  byte cicle_times = 1; // number of times the mountain is done
-  unsigned short cicles = cicle_times*510; // number of instants per mountain
-  float b_mean = 0.0; // mean of b
-  float m_mean = 0.0; // mean of m
-  unsigned short len_without_b = cicles - 1; // total times pwm is not 0
-
-  Serial.print("Computing gain ...");
-
-  for(int i=0; i<cicles; i++){  // has to start in 0
-    
-    analogWrite(led_pin, pwm); // sets the pwm 
-    delay(50);
- 
-    voltageOut = analogRead(t_pin)*(VCC/MAX_ANALOG); // read V0
-  
-    lux = luxToOutputVoltage( voltageOut, true); // compute the lux
-
-    if ( PRINT ){  // wites in Serial the data to compute tau in the python file
-      Serial.print(pwm);
-      Serial.print('\t');
-      Serial.println(lux);
-    }
-    
-    // gets lux boundaries (maxixum value, because the minimum value is the offset)
-    t_maxLux = t_maxLux > lux ? t_maxLux : lux;
-
-    if(pwm != 0){ // compute the gain in each instante
-      m_mean += (lux-b_mean*(i/510 +1))/(float)pwm; // subtract the offset
-    }else{  // adaptation becasue this is an indetermination but, there is never complete dark in the environment
-      b_mean += lux;
-    }
-    
-    // detect if the is reached the top or the bottom
-    if(pwm == 255){ flag = -1; }  
-    else if(pwm == 0){ flag = 1; }
-
-    pwm += flag;  // update pwm value
-    
-   }
-  
-  // 'relax' the light in the box
-  analogWrite(led_pin, 0); 
-  delay(200);
-
-  t_offset = b_mean/cicle_times;     // offset to compensate unpleasent light in the dark
-  t_gain = m_mean/len_without_b;  // gain (G): x(t) = G*u(t)
-
-  // assures that the maximum is possible
-  t_maxLux = t_maxLux < (t_gain) * 255 + (t_offset) ? t_maxLux : (t_gain) * 255 + (t_offset) ; 
-
-  Serial.println("Gain and offset is: Lux = " + String(t_gain, 4) + " * PWM + " + String(t_offset, 4));
-  
-}
-
-/*
  * Converts lux to output voltage or reverse
  *
  * @param x = lux if reverse == false else vo
@@ -180,7 +115,6 @@ void Tau::setParametersABC( float A, float B, float C ){
 float Tau::fTau( short x ){
   if( x < 0 || x > 255)
   {
-    Serial.print("x must be in [ 0 ; 255 ] (pwm).");
     return -1.0;
   }
   else if( t_isDefine ){ return t_a*exp(t_b*x)+t_c; }

@@ -60,7 +60,6 @@ typedef class LdrController{
     float get_offset(){ return t_offset; }
     float boundLUX( float lux );
     void setGain( byte led_pin, float m, float b );
-    void computeGain( byte led_pin );
     void setPin(int pin){ t_pin = pin; } // sets the LDR pin
 
     TAU t_tau_up; // create Tau type

@@ -159,7 +159,7 @@ float ControllerPid::simulator( boolean print ){
 
   float lux_out = luxf - (luxf - luxi )*exp( -expoente );
 
-  if(print){
+  /*if(print){
     // Reference
     Serial.print( t_reference );  // Lux
     Serial.print("\t");
@@ -171,7 +171,7 @@ float ControllerPid::simulator( boolean print ){
     // led 
     Serial.print( ldr.luxToPWM( getU() , true ) );  // LUX
     Serial.print("\t"); 
-  }
+  }*/
   
   return lux_out ;  // simulator value in Volt
 }
@@ -186,6 +186,6 @@ void ControllerPid::output(){
   t_sum += t_output[t_counter%t_meanSize]; // compute the sum
   t_counter ++; // updates new value
   
-  Serial.println( t_sum/t_meanSize ); // LUX - mean
+  //Serial.println( t_sum/t_meanSize ); // LUX - mean
   
 }
