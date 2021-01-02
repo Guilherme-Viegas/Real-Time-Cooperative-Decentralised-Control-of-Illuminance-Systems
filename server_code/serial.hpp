@@ -28,7 +28,6 @@ class communications
 
 private:    // this things are private
 
-    // boost::asio::serial_port *t_serial = nullptr;
     std::unique_ptr<boost::asio::serial_port> t_serial;
 
     boost::system::error_code t_ec;
@@ -49,9 +48,11 @@ public:     // this things are public
     ~communications();  // destructor
 
     uint8_t has_hub();
-    void write_command();
+    void write_command( std::string command );
     void read_until_asynchronous( office *the_office, char delimiter );
     void set_coms_not_available(){ t_coms_available = false; }
+    
+    int silent_retirar(){ return (int)t_num_lamps; }
 
 };
 

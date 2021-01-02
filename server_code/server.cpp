@@ -5,6 +5,8 @@
 
 #define PORT 18700 // https://stackoverflow.com/questions/3855127/find-and-kill-process-locking-port-3000-on-mac
 
+#define INIT_COMMAND "+RPiS"
+
 // global variable to control whether the server runs or not
 bool stop_server = false;
 
@@ -28,12 +30,12 @@ int main()
     //     //return 0;
     // }
     uint8_t num_lamps = 1;
-    office the_office { num_lamps, &the_serial } ;
+    office the_office { num_lamps } ;
 
-    tcp_server server_tcp{ &io, PORT, &the_office };
+    tcp_server server_tcp{ &io, PORT, &the_office, &the_serial };
     udp_server server_udp{ &io, PORT+1, &the_office};
 
-    the_serial.write_command();
+    the_serial.write_command( INIT_COMMAND );
     the_serial.read_until_asynchronous( &the_office, '+' );
 
     // io.run();

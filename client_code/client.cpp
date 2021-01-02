@@ -184,8 +184,22 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                                  address = (int)std::stoi(str_trash.substr(0, b_));
                                  set_value = std::stof(str_trash.substr(b_));
 
-                                 std::cout << "trash: '" << trash << "' Address: '" << address << "' Float Set: '" << set_value << "'" << std::endl;
+std::cout << "trash: '" << trash << "' Address: '" << address << "' Float Set: '" << set_value << "'" << std::endl;
                                  str_command = std::to_string(address) + std::string(1, order) + 's' + std::to_string(set_value);
+                                 break;
+                             }
+                             case 'r':  // restart system
+                             {   
+                                 if( strlen(trash) == 1)
+                                 {
+                                     str_command = std::string(1,order);
+                                 }
+                                 else
+                                 {
+                                     valid_command = false;
+                                 }
+                                 
+
                                  break;
                              }
                              default:
@@ -207,7 +221,7 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                              }
                              else
                              {
-                                 std::cout << "aqui?" << std::endl;
+std::cout << "comando inválido linha 216" << std::endl;
                                  print_invalid_command();
                              }
                              start_read_input(stm_desc, tcp_client, udp_client);

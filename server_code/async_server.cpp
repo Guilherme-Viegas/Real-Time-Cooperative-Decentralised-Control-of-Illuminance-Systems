@@ -109,9 +109,10 @@ void udp_server::send_acknowledgement(bool ack_err)
    | https://www.boost.org/doc/libs/1_35_0/doc/html/boost_asio/tutorial/tutdaytime3.html |                                |
    -------------------------------------------------------------------------------------- */
 
-tcp_server::tcp_server(boost::asio::io_service *io, unsigned short port, office *database) : t_database(database),
-                                                                                             t_io(io),
-                                                                                             t_acceptor(*io, tcp::endpoint(tcp::v4(), port))
+tcp_server::tcp_server(boost::asio::io_service *io, unsigned short port, office *database, communications *serial) : t_database(database),
+                                                                                                                     t_serial(serial),
+                                                                                                                     t_io(io),
+                                                                                                                     t_acceptor(*io, tcp::endpoint(tcp::v4(), port))
 {
     start_accept();
 }
@@ -121,14 +122,15 @@ tcp_server::tcp_server(boost::asio::io_service *io, unsigned short port, office 
  */
 void tcp_server::start_accept()
 {
-    tcp_connection *new_connection = new tcp_connection{t_io, t_database}; // append in list later
+    tcp_connection *new_connection = new tcp_connection{t_io, t_database, t_serial}; // append in list later
 
     t_acceptor.async_accept(new_connection->socket(),
                             [this, new_connection](const boost::system::error_code &err) {
                                 if (!err)
                                 {
                                     std::cout << "New TCP client!" << std::endl;
-                                    new_connection->start_receive();
+                                    new_connection->start_timer();   // starts timer
+                                    new_connection->start_receive(); // start receive instructions
                                 }
                                 else
                                     delete new_connection;
@@ -141,10 +143,13 @@ void tcp_server::start_accept()
  *  This functino is called when the asynchronous accept operation initiated by start_accept() finishes. It services the client request, and then calls start_accept() to initiate the next accept operation.
  */
 
-tcp_connection::tcp_connection(boost::asio::io_service *io, office *database) : t_socket(*io), t_database(database)
+tcp_connection::tcp_connection(boost::asio::io_service *io, office *database, communications *serial) : t_socket(*io), t_database(database), t_serial(serial), t_timer(*io)
 {
 }
 
+/*
+ * Receives a new TCP client command
+ */
 void tcp_connection::start_receive()
 {
     t_socket.async_read_some(
@@ -155,10 +160,16 @@ void tcp_connection::start_receive()
                 handle_receive(error, bytes_transferred);
             }
             else
+            {
+                std::cout << "TCP client has left." << std::endl;
                 delete this;
+            }
         });
 }
 
+/*
+ * Process the command
+ */
 void tcp_connection::handle_receive(const boost::system::error_code &error, size_t bytes_transferred)
 {
     if (!error && bytes_transferred)
@@ -167,7 +178,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
 
         char order = 't';
         char type = 't';
-        int address = 0;
+        int address = -1;
         float value = 0.0;
 
         sscanf(command.c_str(), "%d %c %c %f", &address, &order, &type, &value);
@@ -175,133 +186,226 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
         std::cout << "Received: '" << order << ' ' << type << ' ' << address << ' ' << value << "\t"
                   << " bytes received: " << bytes_transferred << std::endl;
 
-        std::string response = std::string(1,type) + '\t' + std::to_string(address) + '\t';
-        bool valid_response = true;
+        std::string response = std::string(1, type) + '\t' + std::to_string(address) + '\t';
+        int valid_response = 1; // 1: True , -1 : Fale, 0: do nothing
 
         if (0 > address || address > t_database->t_num_lamps)
         {
-            valid_response = false;
+            valid_response = -1;
         }
-        else if (order == 'g')
+        switch (order)
+        {
+        case 'g':
         {
             switch (type)
             {
-            case 'e':   // get accumulated energy consumption in the system <T> or at desk <i> since the last restart
+            case 'e': // get accumulated energy consumption in the system <T> or at desk <i> since the last restart
             {
-                response += std::to_string(address == 0 ? t_database->get_accumulated_energy_consumption() : 
-                                                            t_database->t_lamps_array[address - 1]->get_accumulated_energy_consumption_at_desk());
+                response += std::to_string(address == 0 ? t_database->get_accumulated_energy_consumption() : t_database->t_lamps_array[address - 1]->get_accumulated_energy_consumption_at_desk());
                 break;
             }
             case 'f': // get flicker error in the system <T> or at desk <i> since the last restart
             {
-                response += std::to_string(address == 0 ? t_database->get_accumulated_flicker_error() : 
-                                                            t_database->t_lamps_array[address - 1]->get_accumulated_flicker_error_at_desk());
+                response += std::to_string(address == 0 ? t_database->get_accumulated_flicker_error() : t_database->t_lamps_array[address - 1]->get_accumulated_flicker_error_at_desk());
                 break;
             }
             case 'p': // get instantaneous power consumption in the system <T> or at desk <i>
             {
-                response += std::to_string(address == 0 ? t_database->get_instant_power() : 
-                                                            t_database->t_lamps_array[address - 1]->get_instant_power_at_desk());
+                response += std::to_string(address == 0 ? t_database->get_instant_power() : t_database->t_lamps_array[address - 1]->get_instant_power_at_desk());
                 break;
             }
             case 'v': // get visibility error in the system <T> or at desk <i> since the last restart
             {
-                response += std::to_string(address == 0 ? t_database->get_accumulated_visibility_error() : 
-                                                            t_database->t_lamps_array[address - 1]->get_accumulated_visibility_error_at_desk());
+                response += std::to_string(address == 0 ? t_database->get_accumulated_visibility_error() : t_database->t_lamps_array[address - 1]->get_accumulated_visibility_error_at_desk());
                 break;
             }
             case 'c': // get current cost energy at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response += std::to_string( t_database->t_lamps_array[address - 1]->t_nominal_power ); }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response += std::to_string(t_database->t_lamps_array[address - 1]->t_nominal_power);
+                }
                 break;
             }
             case 'd': // get current duty cicle at luminance at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response += std::to_string( t_database->t_lamps_array[address - 1]->t_duty_cicle.get_newest() ); }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response += std::to_string(t_database->t_lamps_array[address - 1]->t_duty_cicle.get_newest());
+                }
                 break;
             }
             case 'l': // get current illuminance at luminance at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response += std::to_string( t_database->t_lamps_array[address - 1]->t_lumminace.get_newest() ); }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response += std::to_string(t_database->t_lamps_array[address - 1]->t_lumminace.get_newest());
+                }
                 break;
             }
             case 'L': // get current illuminance lower bound at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response += std::to_string( t_database->t_lamps_array[address - 1]->t_state == false ?
-                                                   t_database->t_lamps_array[address - 1]->t_unoccupied_value :
-                                                   t_database->t_lamps_array[address - 1]->t_occupied_value ); }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response += std::to_string(t_database->t_lamps_array[address - 1]->t_state == false ? t_database->t_lamps_array[address - 1]->t_unoccupied_value : t_database->t_lamps_array[address - 1]->t_occupied_value);
+                }
                 break;
             }
             case 'O': // get lower bound on illuminance for Occupied state at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response += std::to_string( t_database->t_lamps_array[address - 1]->t_occupied_value ); }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response += std::to_string(t_database->t_lamps_array[address - 1]->t_occupied_value);
+                }
                 break;
             }
             case 'o': // get current occupancy state at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response += std::to_string( t_database->t_lamps_array[address - 1]->t_state ); }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response += std::to_string(t_database->t_lamps_array[address - 1]->t_state);
+                }
                 break;
             }
             case 'r': // get current illuminance control reference at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response = "MISTÉRIO : get current illuminance control reference at desk <i>"; }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response = "MISTÉRIO : get current illuminance control reference at desk <i>";
+                }
                 break;
             }
             case 't': // get elapsed time since last restart
             {
-                if( address == 0){ valid_response = false; }
-                else{ response += std::to_string( t_database->get_elapesd_time_since_last_restart() ); }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response += std::to_string(t_database->get_elapesd_time_since_last_restart());
+                }
                 break;
             }
             case 'U': // get lower bound on illuminance for Unoccupied state at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response += std::to_string( t_database->t_lamps_array[address - 1]->t_unoccupied_value ); }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response += std::to_string(t_database->t_lamps_array[address - 1]->t_unoccupied_value);
+                }
                 break;
             }
             case 'x': // get current external illuminace at desk <i>
             {
-                if( address == 0){ valid_response = false; }
-                else{ response = "MISTÉRIO : get current external illuminace at desk <i>"; }
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else
+                {
+                    response = "MISTÉRIO : get current external illuminace at desk <i>";
+                }
                 break;
             }
             default:
-                valid_response = false;
+            {
+                valid_response = -1;
                 break;
             }
+            }
+            break;
         }
-        else if(order == 'c') // set current energy cost at desk <x>
+        case 'c': // set current energy cost at desk <x>
+        case 'O': // set lower bound on illuminance for Occupied state at desk <i>
+        case 'o': // set current occupancy state at desk <i>
+        case 'U': // set lower bound on illuminance for Unoccupied state at desk <i>
         {
-            if( address == 0){ valid_response = false; }
-            else{ response += std::to_string( t_database->t_lamps_array[address - 1]->t_nominal_power ); }
+            if (address == 0)
+            {
+                valid_response = -1;
+            }
+            else
+            {
+                valid_response = 0; // personal message
+                std::string client_msg = std::to_string(address) + std::string(1, order) + std::to_string(round(value * 10));
+std::cout << t_client_address << "\t" << client_msg << std::endl;
+
+                // command already in stack
+                if (std::find(t_database->t_clients_command.begin(), t_database->t_clients_command.end(), client_msg) != t_database->t_clients_command.end())
+                {
+                    send_acknowledgement(false);
+                }
+                else
+                {
+                    u_int8_t val[2]{};                                                                                                                // 2 bytes with float value
+                    t_database->float_2_bytes(value, val);                                                                                            // converts the float to 12 decimal bit and 4 floats
+                    std::string to_arduino = '+' + std::to_string(address) + std::string(1, order) + std::string(1, val[1]) + std::string(1, val[0]); // msg to be sent
+                    t_serial->write_command(to_arduino);                                                                                              // sent message
+                    t_database->t_clients_address.push_back(t_client_address);                                                                        // appends the clients address
+                    t_database->t_clients_command.push_back(client_msg);                                                                              // appends the new command
+                    t_database->t_acknowledge.push_back(0);                                                                                           // appends the arduino response
+                }
+            }
+            break;
         }
-        else
+        default:
         {
-            valid_response = false;
+            valid_response = -1;
+            break;
+        }
         }
 
-        if (!valid_response)
-        {   
+        if (valid_response == -1)
+        {
             response = "The number of Total desks connected in the network is: " + std::to_string(t_database->t_num_lamps);
         }
-
-        response += '\n';
-        t_socket.async_send(boost::asio::buffer(response.c_str(), response.size()),
-                            [response](const boost::system::error_code &t_ec, std::size_t len) {
-                                std::cout << response << std::endl;
-                            });
-        
+        else if (valid_response != 0) // there is a response to send
+        {
+            response += '\n';
+            t_socket.async_send(boost::asio::buffer(response.c_str(), response.size()),
+                                [response](const boost::system::error_code &t_ec, std::size_t len) {
+                                    std::cout << response << std::endl;
+                                });
+        }
     }
     start_receive();
 }
 
+/*
+ * Sends wheater the information was accepted 'ack' or not 'err'
+ */
 void tcp_connection::send_acknowledgement(bool ack_err)
 {
     std::string response = (std::string("\t\t\t\t\t\t\t\t")) + (ack_err ? "ack" : "err");
@@ -310,4 +414,40 @@ void tcp_connection::send_acknowledgement(bool ack_err)
                         [response](const boost::system::error_code &t_ec, std::size_t len) {
                             std::cout << response << std::endl;
                         });
+}
+
+/*
+ * Checks asynchronous if the database as a new information valid or not
+ */
+void tcp_connection::start_timer()
+{
+    t_timer.expires_after(boost::asio::chrono::milliseconds{2000});
+    t_timer.async_wait([this](const boost::system::error_code &t_ec) {
+        if (t_ec || !t_socket.is_open())
+        {
+            return;
+        }
+
+        std::cout << "\nt_client_address: " << t_client_address << std::endl;
+        // delete index from backwards when the thread is done
+        for (int clt = t_database->t_clients_address.size() - 1; clt >= 0; clt--)
+        {
+            std::cout << "\tclient_comand: " << t_database->t_clients_address.at(clt) << std::endl;
+            if (!t_database->t_clients_address.at(clt).compare(t_client_address)) // client has pendent process
+            {
+                std::cout << "\t\tvalor:" << t_database->t_acknowledge.at(clt) << std::endl;
+
+                if (t_database->t_acknowledge.at(clt) == 0)
+                {
+                    continue;
+                } // 'ack' to be sent
+                send_acknowledgement(t_database->t_acknowledge.at(clt) == 1 ? true : false);
+                // erase commands
+                t_database->t_acknowledge.erase(t_database->t_acknowledge.begin() + clt);
+                t_database->t_clients_command.erase(t_database->t_clients_command.begin() + clt); // if the clients wants to know the command, print this before send teh acknowledge
+                t_database->t_clients_address.erase(t_database->t_clients_address.begin() + clt);
+            }
+        }
+        start_timer();
+    });
 }

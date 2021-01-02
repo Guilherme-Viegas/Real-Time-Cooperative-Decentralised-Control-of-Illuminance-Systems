@@ -83,6 +83,11 @@ public:     // this things are public
     lamp** t_lamps_array;
     int t_num_lamps = -1; // TODO
 
+    // async operation
+    std::vector < std::string > t_clients_address {};
+    std::vector < std::string > t_clients_command {};
+    std::vector < int > t_acknowledge {};
+
     office( uint8_t numLamps );
     ~office();
     
@@ -90,6 +95,7 @@ public:     // this things are public
     bool get_state(){ return t_office_is_open; }
     void set_state( bool state ){ t_office_is_open = state; }
     void updates_database( char command[], uint8_t size );
+    void float_2_bytes(float fnum, u_int8_t bytes[2]) const;
 
     float get_accumulated_energy_consumption();
     float get_instant_power();

@@ -71,9 +71,9 @@ uint8_t communications::has_hub()
 /*
 *   Ask to the Arduino the initial states
 */
-void communications::write_command()
+void communications::write_command( std::string command )
 {
-    boost::asio::write( *t_serial, boost::asio::buffer("+RPiS"), t_ec );
+    boost::asio::write( *t_serial, boost::asio::buffer(command), t_ec );
 }
 
 /*

@@ -3,7 +3,8 @@
 
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <iostream>
-#include <string>
+#include <string>   // for std::string
+#include <sstream> //for std::stringstream 
 #include <thread>
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
@@ -12,6 +13,7 @@
 #include <boost/asio.hpp>
 
 #include "database.hpp"
+#include "serial.hpp"
 
 /* --------------------------------------------------------------------------------
    |                                  UDP                                        |
@@ -54,18 +56,25 @@ private:
 
     tcp::socket t_socket;
     office *t_database;
+    communications *t_serial;
+
+    std::stringstream t_ss {};
+    std::string t_client_address; 
+    boost::asio::steady_timer t_timer;
 
 public:
 
-    tcp_connection(boost::asio::io_service *io, office *database);
+    tcp_connection(boost::asio::io_service *io, office *database, communications *serial);
 
-    tcp::socket &socket(){ return t_socket; }
+    void new_client(){ t_ss << &t_socket; t_client_address = t_ss.str(); }
+    tcp::socket &socket(){ new_client(); return t_socket; }
 
     boost::array<char, 1024> t_recv_buffer;
 
     void start_receive();
     void handle_receive(const boost::system::error_code& error,  size_t bytes_transferred);
     void send_acknowledgement( bool ack_err );
+    void start_timer();
 };
 
 class tcp_server
@@ -76,12 +85,13 @@ private:
     // void handle_accept(boost::shared_ptr<tcp_connection> new_connection, const boost::system::error_code &error);
     
     office *t_database;
+    communications *t_serial;
 
     boost::asio::io_service *t_io;
     tcp::acceptor t_acceptor;
 
 public:
-    tcp_server(boost::asio::io_service *io, unsigned short port, office *database);
+    tcp_server(boost::asio::io_service *io, unsigned short port, office *database, communications *serial);
     ~tcp_server(){ t_acceptor.close(); }
 };
 

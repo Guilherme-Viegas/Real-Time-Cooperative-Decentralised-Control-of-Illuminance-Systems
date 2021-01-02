@@ -31,18 +31,30 @@ void office::updates_database( char command[], uint8_t size )
 
     char order = command[0];
     int address = (int)(uint8_t)command[1];
+    bool set_command = 0;    // commands that are set by the client
 
     switch (order)
     {
     case 't':
-    {
+    {   
         t_time_since_restart = (float)(address<<12) + bytes_2_float(command[2], command[3]);
         if(DEBUG) std::cout << "Time since last restart: " << t_time_since_restart << " segundos.\n";
         break;
     }
     case 'o':
-    {
-        t_lamps_array[address-1]->t_state = command[2];   // check if command[3] == '*'
+    {   
+        value = bytes_2_float(command[2], command[3]);
+        if( value == 0.15 )
+        {
+            set_command = -1;
+            break;
+        }
+        else if( t_lamps_array[address-1]->t_occupied_value != -1.0 )   // not to print in the first time
+        {
+            set_command = 1;
+        }
+        // Updates the value in the dataset
+        t_lamps_array[address-1]->t_state = command[2];
 
         if(DEBUG) std::cout << "Desk[" << address << "]\tThe state was step to: " << ( t_lamps_array[address-1]->t_state ? "occupied" : "unoccupied") << "\n";
         break;
@@ -52,12 +64,12 @@ void office::updates_database( char command[], uint8_t size )
         value = bytes_2_float(command[2], command[3]);
         if( value == 0.15 )
         {
-            std::cout << "[CLIENT]\t>>\terr\n";
+            set_command = -1;
             break;
         }
         else if( t_lamps_array[address-1]->t_occupied_value != -1.0 )
         {
-            std::cout << "[CLIENT]\t>>\tack\n";
+            set_command = 1;
         }
         // Updates the value in the dataset
         t_lamps_array[address-1]->t_occupied_value = value;
@@ -70,12 +82,12 @@ void office::updates_database( char command[], uint8_t size )
         value = bytes_2_float(command[2], command[3]);
         if( value == 0.15 )
         {
-            std::cout << "[CLIENT]\t>>\terr\n";
+            set_command = -1;
             break;
         }
         else if( t_lamps_array[address-1]->t_unoccupied_value != -2.0 )
         {
-            std::cout << "[CLIENT]\t>>\tack\n";
+            set_command = 1;
         }
         // Updates the value in the dataset
         t_lamps_array[address-1]->t_unoccupied_value = value;
@@ -84,7 +96,8 @@ void office::updates_database( char command[], uint8_t size )
         break;
     }
     case 's':
-    {
+    {   
+        set_command = false;
         float luminance = bytes_2_float(command[2], command[3]);
         t_lamps_array[address-1]->t_lumminace.insert_newest( luminance );
 
@@ -105,13 +118,13 @@ void office::updates_database( char command[], uint8_t size )
     {
         value = bytes_2_float(command[2], command[3]);
         if( value == 0.15 )
-        {
-            std::cout << "[CLIENT]\t>>\terr\n";
+        {   
+            set_command = -1;
             break;
         }
         else if( t_lamps_array[address-1]->t_nominal_power != -1.0 )
         {
-            std::cout << "[CLIENT]\t>>\tack\n";
+            set_command = 1;
         }
         // Updates the value in the dataset
         t_lamps_array[address-1]->t_nominal_power = value;
@@ -122,6 +135,17 @@ void office::updates_database( char command[], uint8_t size )
     default:
         //std::cout << "Default at switch " << (int)(uint8_t)desk << std::endl;
         break;
+    }
+    if( set_command != 0 )   // happens when the arduino return same value that was set by the client 
+    {
+        std::string client_msg = std::to_string(address) + std::string(1, order) + std::to_string(round(value * 10));
+        for (int clt = 0; clt < t_clients_address.size() ; clt++)
+        {
+            if ( ! t_clients_command.at(clt).compare(client_msg) )   // return status
+            {
+                t_acknowledge.at(clt) = set_command;
+            }
+        }
     }
 }
 
@@ -141,6 +165,37 @@ float office::bytes_2_float(uint8_t most_significative_bit, uint8_t less_signifi
     
     // std::cout << "integer " << integer_number << " decimal " <<decimal_number << std::endl;
     return integer_number + decimal_number*0.1;
+}
+
+/*
+ * This function is used to represent a float number in 2 bytes.
+ * 
+ * The 12 most significatives bits represents the integer part with resolution 0:4095
+ * The 4  less significatives bits represents the decimal part with resolution 0:9
+ * 
+ * Sends '*' when there is nothing to be said, which corresnponds to 10 in the 4 less significative bits
+ */
+void office::float_2_bytes(float fnum, u_int8_t bytes[2]) const
+{   
+    // the maxium admissive value is 4095.94(9)
+    fnum = fnum < pow(2,12)-0.05 ? fnum : pow(2,12)-1+0.9;  // 2^12-1 == 4095, 12 bits representation + 4bits to decimal representation(0.1 -> 0.9)
+  
+    uint16_t output = fnum < 0; // flag that represents if fnum is negative
+    uint16_t inum = fnum;  // integer part
+    fnum = fnum-inum; // floating part
+    uint8_t dnum = round(10*fnum);  // integer decimal part
+
+    // increments one when the decimal part rounds up
+    if(dnum == 10){
+        dnum = 0;
+        inum++;
+    }
+    
+    inum = inum<<4; // the integer will be represent in the first 1,5 bits
+    output = output ? 15: inum + dnum; // send 15 when fnum is negative, which should not be possible
+    
+    bytes[1] = (uint8_t) (output>>8); // wirte second byte - DEBUG: Serial.println((byte) (output>>8))
+    bytes[0] = (uint8_t) output;  // write first byte - DEBUG: Serial.println((byte) output);
 }
 
 /*
