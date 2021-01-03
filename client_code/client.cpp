@@ -6,7 +6,10 @@
 
 #define BUFFER_SIZE 1024
 #define PORT 18700
-#define COMS_MSG "Command not found. Type 'Comds' to see a list of available commands!" << std::endl
+#define MAX_ARDUINOS 255
+#define COMS_MSG "Command not found. Type 'Comds' to see a list of available commands! \n\
+                        The number of arduinos can not be more than: " \
+                     << MAX_ARDUINOS << std::endl
 #define CLOSE_TCP std::cout << "Close TCP client!" << std::endl
 #define CLOSE_UDP std::cout << "Close UDP connection!" << std::endl
 
@@ -21,12 +24,12 @@ bool stop_server = false;
 bool tcp_connection = false;
 bool udp_connection = false;
 
-// file 
+// file
 std::ofstream file;
 
 void print_commands()
 {
-    std::cout << "---------------------------------------------TCP Commands---------------------------------------------" << std::endl; 
+    std::cout << "---------------------------------------------TCP Commands---------------------------------------------" << std::endl;
     std::cout << "| g l <i>     - get the illuminance at desk with address <i>                                         |" << std::endl;
     std::cout << "| g d <i>     - get the current duty-cycle at luminaire <i>                                          |" << std::endl;
     std::cout << "| g o <i>     - get current occupancy state at desk <i> -  - 0 unoccupied OR 1 occupied              |" << std::endl;
@@ -55,7 +58,6 @@ void print_commands()
     std::cout << "| s <x> <i>   - stop stream of real-time variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'       |" << std::endl;
     std::cout << "| file        - at the end of a command to open and write values from UDP streams                    |" << std::endl;
     std::cout << "------------------------------------------------------------------------------------------------------" << std::endl;
-
 }
 
 void udp_start_read_server(ip::udp::socket *client)
@@ -65,8 +67,12 @@ void udp_start_read_server(ip::udp::socket *client)
                               if (!err && bytes_transferred)
                               {
                                   std::string command = std::string(udp_message.begin(), udp_message.begin() + bytes_transferred);
-                                  std::cout << "[UDP] server: " << command << std::endl;
-                                  if(file.is_open()){ file << command.substr(6, command.size()).append("\n"); }
+                                  if (command[0] == 's')
+                                      std::cout << "[UDP] server: " << command << std::endl;
+                                  if (file.is_open())
+                                  {
+                                      file << command.substr(6, command.size()).append("\n");
+                                  }
                                   udp_start_read_server(client);
                               }
                               else
@@ -114,7 +120,6 @@ void print_invalid_command()
 
 void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::socket *tcp_client, ip::udp::socket *udp_client)
 {
-
     async_read_until(*stm_desc, stm_buff, '\n',
                      [=](const boost::system::error_code &err, std::size_t bytes_transferred) {
                          if (!err && bytes_transferred)
@@ -129,44 +134,44 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                              std::string str_command;
                              int valid_command = 1;
                              float set_value = 0.0;
-                             
 
                              // read input
                              int size = stm_buff.size();
-                             stm_buff.sgetn(input, size); 
+                             stm_buff.sgetn(input, size);
                              stm_buff.consume(size);
                              std::string str_input = std::string(input);
 
-
-                             // find the word 'file' 
+                             // find the word 'file'
                              int file_itr = str_input.find("file");
-                             if( file_itr != -1 )   // writes in file
-                             {  
-                                 if(file_itr > 0 ){file_itr--;} // removes the space before it
-                                 str_input.erase(file_itr,5);
-                                 
-                                 if(!file.is_open())
-                                 {  
-                                    file.open(str_input.substr(0, str_input.size()-1).append(".txt"), std::ofstream::out );
+                             if (file_itr != -1 && (str_input[0] == 'b' || str_input[0] == 's')) // writes in file
+                             {
+                                 if (file_itr > 0)
+                                 {
+                                     file_itr--;
+                                 } // removes the space before it
+                                 str_input.erase(file_itr, 5);
+
+                                 if (!file.is_open())
+                                 {
+                                     file.open(str_input.substr(0, str_input.size() - 1).append(".txt"), std::ofstream::out);
                                  }
                              }
-                             // find the word 'close' 
+                             // find the word 'close'
 
-                             else if( str_input.find("close") != -1 )   // writes in file
-                             {  
+                             else if (str_input.find("close") != -1) // writes in file
+                             {
                                  stop_server = true;
-                                 return; 
+                                 return;
                              }
 
-                             // find the word 'Comds' 
-                             else if( str_input.find("Comds") != -1  )   // writes in file
-                             {  
+                             // find the word 'Comds'
+                             else if (str_input.find("Comds") != -1) // writes in file
+                             {
                                  print_commands();
                                  start_read_input(stm_desc, tcp_client, udp_client);
                              }
 
-                             
-                             str_input.append("\n");    // makes'\n' a delimiter
+                             str_input.append("\n"); // makes'\n' a delimiter
 
                              // get order
                              sscanf(str_input.c_str(), "%c %[^\n]", &order, trash);
@@ -187,7 +192,7 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                              {
                              case 'b': // get last minute buffer of variable <x> of desk <i>
                              case 's': // start/stop stream of real-time variable <x> of desk <i>
-                             {   
+                             {
                                  valid_command = 0; // ignores
                                  sscanf(trash, "%c %u %[^\n]", &type, &address, trash);
                                  if ((type == 'l' || type == 'd') && udp_connection)
@@ -210,7 +215,12 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                              case 'g': // get commands
                              {
                                  sscanf(trash, "%c %u %[^\n]", &type, &address, trash);
-                                 std::cout << "type: " << type << " address: " << address << " trash: " << trash <<  std::endl;
+                                 if (address > MAX_ARDUINOS)
+                                 {
+                                     type = '.';
+                                 }
+
+                                 std::cout << "type: " << type << " address: " << address << " trash: " << trash << std::endl;
                                  switch (type)
                                  {
                                  case 'e': // get accumulated energy consumption in the system <T> or at desk <i> since the last restart
@@ -254,28 +264,28 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                                  int b_ = str_trash.find(' ');
                                  try
                                  {
-                                    address = (int)std::stoi(str_trash.substr(0, b_));
-                                    set_value = std::stof(str_trash.substr(b_));
-std::cout << "trash: '" << trash << "' Address: '" << address << "' Float Set: '" << set_value << "'" << std::endl;
-                                    str_command = std::to_string(address) + std::string(1, order) + 's' + std::to_string(set_value);
+                                     address = (int)std::stoi(str_trash.substr(0, b_));
+                                     set_value = std::stof(str_trash.substr(b_));
+                                     std::cout << "trash: '" << trash << "' Address: '" << address << "' Float Set: '" << set_value << "'" << std::endl;
+                                     str_command = std::to_string(address) + std::string(1, order) + 's' + std::to_string(set_value);
                                  }
-                                 catch (const std::exception& e)
+                                 catch (const std::exception &e)
                                  {
                                      valid_command = -1;
                                  }
                                  break;
                              }
-                             case 'r':  // restart system
-                             {   
-                                 if( strlen(input) == 2 && input[1] == '\n'  )
+                             case 'r': // restart system
+                             {
+                                 if (strlen(input) == 2 && input[1] == '\n')
                                  {
-                                     str_command = std::string(1,order);
+                                     str_command = std::string(1, order);
                                  }
                                  else
                                  {
                                      valid_command = -1;
                                  }
-                                 
+
                                  break;
                              }
                              default:
@@ -286,7 +296,7 @@ std::cout << "trash: '" << trash << "' Address: '" << address << "' Float Set: '
                              }
 
                              command = str_command.c_str();
-                             if (valid_command==1 && tcp_connection)
+                             if (valid_command == 1 && tcp_connection)
                              {
                                  tcp_client->async_send(buffer(command, strlen(command)),
 
@@ -297,7 +307,6 @@ std::cout << "trash: '" << trash << "' Address: '" << address << "' Float Set: '
                              }
                              else if (valid_command == -1)
                              {
-std::cout << "comando inválido linha 216" << std::endl;
                                  print_invalid_command();
                              }
                              start_read_input(stm_desc, tcp_client, udp_client);
@@ -341,8 +350,6 @@ void start_UDP_connection(ip::udp::socket *udp_socket, ip::udp::endpoint *udp_en
                               });
 }
 
-
-
 int main()
 {
     io_context io;
@@ -370,18 +377,18 @@ int main()
         io.poll_one();
     }
 
-    if ( tcp_socket.is_open() )
+    if (tcp_socket.is_open())
     {
         tcp_socket.close();
         CLOSE_TCP;
     }
-    if ( udp_socket.is_open() )
+    if (udp_socket.is_open())
     {
         udp_socket.close();
         CLOSE_UDP;
     }
 
-    if ( file.is_open() )
+    if (file.is_open())
     {
         file.close();
     }

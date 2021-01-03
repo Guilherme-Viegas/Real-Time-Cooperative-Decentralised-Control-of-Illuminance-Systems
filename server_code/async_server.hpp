@@ -58,14 +58,15 @@ private:
     communications *t_serial;
 
     std::stringstream t_ss {};
-    std::string t_client_address; 
+
     boost::asio::steady_timer t_timer;
 
 public:
 
     tcp_connection(boost::asio::io_service *io, office *database, communications *serial);
     ~tcp_connection(){ if(t_socket.is_open()){ t_socket.close(); } }
-
+    
+    std::string t_client_address; 
     void new_client(){ t_ss << &t_socket; t_client_address = t_ss.str(); }
     tcp::socket &socket(){ new_client(); return t_socket; }
 

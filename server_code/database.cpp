@@ -1,6 +1,5 @@
 #include "database.hpp"
 
-
 office::office( uint8_t num_lamps ) : t_num_lamps(num_lamps)
 {   
     if(DEBUG) std::cout << "Welcome to the Office!: " << this << std::endl;    // greeting
@@ -20,12 +19,13 @@ office::~office()
     delete[] t_lamps_array;  // free the memory of the array of teh lamps' address
 }
 
-
 /*
 *   Writes new values on database
 */
 void office::updates_database( char command[], uint8_t size )
 {   
+    std::lock_guard<std::mutex> lock(t_mutex);
+    
     float value = 0.0;
     //static bool first = true;
 
@@ -35,6 +35,18 @@ void office::updates_database( char command[], uint8_t size )
 
     switch (order)
     {
+    case 'A':
+    {   
+        set_command = -1;
+        if(command[2] == ':' && command[3] == ')')
+        {
+            restart_it_all( (int)(u_int8_t)command[1] );
+            address = 0;
+            value = 0;
+            set_command = 1;
+        }
+        break;
+    }
     case 't':
     {   
         t_time_since_restart = (float)(address<<12) + bytes_2_float(command[2], command[3]);
@@ -49,14 +61,14 @@ void office::updates_database( char command[], uint8_t size )
             set_command = -1;
             break;
         }
-        else if( t_lamps_array[address-1]->t_occupied_value != -1.0 )   // not to print in the first time
+        else if( t_lamps_array[address-1]->get_occupied_value() != -1.0 )   // not to print in the first time
         {
             set_command = 1;
         }
         // Updates the value in the dataset
-        t_lamps_array[address-1]->t_state = command[2];
+        t_lamps_array[address-1]->set_state(command[2]);
 
-        if(DEBUG) std::cout << "Desk[" << address << "]\tThe state was step to: " << ( t_lamps_array[address-1]->t_state ? "occupied" : "unoccupied") << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe state was step to: " << ( t_lamps_array[address-1]->get_state() ? "occupied" : "unoccupied") << "\n";
         break;
     }
     case 'O':
@@ -67,14 +79,14 @@ void office::updates_database( char command[], uint8_t size )
             set_command = -1;
             break;
         }
-        else if( t_lamps_array[address-1]->t_occupied_value != -1.0 )
+        else if( t_lamps_array[address-1]->get_occupied_value() != -1.0 )
         {
             set_command = 1;
         }
         // Updates the value in the dataset
-        t_lamps_array[address-1]->t_occupied_value = value;
+        t_lamps_array[address-1]->set_occupied_value( value );
     
-        if(DEBUG) std::cout << "Desk[" << address << "]\tThe occupied value is " << t_lamps_array[address-1]->t_occupied_value << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe occupied value is " << t_lamps_array[address-1]->get_occupied_value() << "\n";
         break;
     }
     case 'U':
@@ -85,21 +97,21 @@ void office::updates_database( char command[], uint8_t size )
             set_command = -1;
             break;
         }
-        else if( t_lamps_array[address-1]->t_unoccupied_value != -2.0 )
+        else if( t_lamps_array[address-1]->get_unoccupied_value() != -2.0 )
         {
             set_command = 1;
         }
         // Updates the value in the dataset
-        t_lamps_array[address-1]->t_unoccupied_value = value;
+        t_lamps_array[address-1]->set_unoccupied_value( value );
 
-        if(DEBUG) std::cout << "Desk[" << address << "]\tThe unoccupied value is " << t_lamps_array[address-1]->t_unoccupied_value << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe unoccupied value is " << t_lamps_array[address-1]->get_unoccupied_value() << "\n";
         break;
     }
     case 's':
     {   
         set_command = false;
         float luminance = bytes_2_float(command[2], command[3]);
-        t_lamps_array[address-1]->t_lumminace.insert_newest( luminance );
+        t_lamps_array[address-1]->t_luminance.insert_newest( luminance );
 
         float duty_cicle = bytes_2_float(command[4], command[5])/100.0;
         t_lamps_array[address-1]->t_duty_cicle.insert_newest( duty_cicle );
@@ -122,14 +134,14 @@ void office::updates_database( char command[], uint8_t size )
             set_command = -1;
             break;
         }
-        else if( t_lamps_array[address-1]->t_nominal_power != -1.0 )
+        else if( t_lamps_array[address-1]->get_nominal_power() != -1.0 )
         {
             set_command = 1;
         }
         // Updates the value in the dataset
-        t_lamps_array[address-1]->t_nominal_power = value;
+        t_lamps_array[address-1]->set_nominal_power( value );
     
-        if(DEBUG) std::cout << "Desk[" << address << "]\tThe cost value is " << t_lamps_array[address-1]->t_nominal_power << "\n";
+        if(DEBUG) std::cout << "Desk[" << address << "]\tThe cost value is " << t_lamps_array[address-1]->get_nominal_power() << "\n";
         break;
     }
     default:
@@ -203,6 +215,8 @@ void office::float_2_bytes(float fnum, u_int8_t bytes[2]) const
  */
 float office::get_accumulated_energy_consumption()
 {   
+    std::lock_guard<std::mutex> lock(t_mutex);
+
     float energy = 0.0;
     for(int i = 0; i < t_num_lamps; i ++)
     {
@@ -216,6 +230,8 @@ float office::get_accumulated_energy_consumption()
  */
 float office::get_instant_power()
 {   
+    std::lock_guard<std::mutex> lock(t_mutex);
+    
     float power = 0.0;
     for(int i = 0; i < t_num_lamps; i ++)
     {
@@ -228,7 +244,9 @@ float office::get_instant_power()
  * Computes the total accumulated visibility error since last system restart
  */
 float office::get_accumulated_visibility_error()
-{
+{   
+    std::lock_guard<std::mutex> lock(t_mutex);
+    
     float visibility = 0.0;
     for(int i = 0; i < t_num_lamps; i ++)
     {
@@ -242,6 +260,8 @@ float office::get_accumulated_visibility_error()
  */
 float office::get_accumulated_flicker_error()
 {   
+    std::lock_guard<std::mutex> lock(t_mutex);
+
     float flicker = 0.0;
     for(int i = 0; i < t_num_lamps; i ++)
     {
@@ -255,7 +275,9 @@ float office::get_accumulated_flicker_error()
  * return whereas the stream has started 0, if it was stopped correctly 1 or not wrong command -1
  */
 int office::set_upd_stream( char type, int address, boost::asio::ip::udp::socket *socket, boost::asio::ip::udp::endpoint *endpoint)
-{
+{   
+    std::lock_guard<std::mutex> lock(t_mutex);
+
     if(t_stream)   // command to stop stream
     {   
         if( t_stream_type == type && t_stream_address == address )
@@ -282,10 +304,10 @@ int office::set_upd_stream( char type, int address, boost::asio::ip::udp::socket
  */
  void office::udp_stream( float value )
  {  
+    std::lock_guard<std::mutex> lock(t_mutex);
+
     std::string str_value =  std::to_string( value );
     std::string str_time =  std::to_string( t_time_since_restart );
-
-    //std::to_string( t_time_since_restart)
 
     std::string response =  std::string(1,'s') +  '\t' +  std::string(1,t_stream_type) + '\t'
                         + std::to_string(t_stream_address) + '\t' + str_value.erase(str_value.size()-5)
@@ -298,6 +320,50 @@ int office::set_upd_stream( char type, int address, boost::asio::ip::udp::socket
         }
     );
  }
+
+int office::get_num_lamps()
+{
+    std::lock_guard<std::mutex> lock(t_mutex);
+    return t_num_lamps;
+}
+
+void office::restart_it_all( int lamps )
+{   
+
+    // deletes previous nodes
+    for(int i = 0; i<t_time_since_restart; i++)
+    {   
+        delete t_lamps_array[i];
+    }
+    delete[] t_lamps_array;
+
+
+    // clears office class (this)
+    t_time_since_restart = 0.0;
+    t_num_lamps = lamps; 
+    t_stream = false;
+    t_stream_type = ' ';
+    t_stream_address = 0;
+    
+    for (int clt = t_clients_address.size() - 1; clt >= 0; clt--)
+    {
+        if( t_clients_address.at(clt).compare("0A0") ) // if message is to restart does not restart
+        {
+            t_clients_address.erase( t_clients_address.begin() + clt );
+            t_clients_command.erase( t_clients_command.begin() + clt );
+            t_acknowledge.erase( t_acknowledge.begin() + clt );
+        }
+    }
+
+    t_lamps_array = new lamp* [t_num_lamps];    // creats an array of lamps and return he array of poiters to lamps
+
+    // creates new nodes
+    for( int l=0; l<t_num_lamps; l++)    // for each lamp will create one struct 
+    {
+        t_lamps_array[l] = new lamp { l+1 };   // stores the address of the new lamp in the array of pointers to lamp object  
+    }
+
+}
 
 /* --------------------------------------------------------------------------------
    |                                  Lamp                                        |
@@ -317,7 +383,8 @@ lamp::~lamp()
  *  Computes Performence metrcis such as energy, power, flicker, visibility
  */
 void lamp::compute_performance_metrics_at_desk( float new_luminance, float new_duty_cicle )
-{
+{   
+    std::lock_guard<std::mutex> lock(t_mutex);
     // Computes Instante Power
     t_instant_power = t_nominal_power*new_duty_cicle;
 
@@ -340,3 +407,74 @@ void lamp::compute_performance_metrics_at_desk( float new_luminance, float new_d
     t_duty_cicle_prev = new_duty_cicle;
 }
 
+float lamp::get_accumulated_energy_consumption_at_desk()
+{ 
+    std::lock_guard<std::mutex> lock(t_mutex);
+    return t_accumulated_energy_consumption;
+}
+
+float lamp::get_instant_power_at_desk()
+{
+    std::lock_guard<std::mutex> lock(t_mutex);
+    return t_instant_power;
+}
+
+float lamp::get_accumulated_visibility_error_at_desk()
+{
+    std::lock_guard<std::mutex> lock(t_mutex);
+    return t_accumulated_visibility_error;
+}
+
+float lamp::get_accumulated_flicker_error_at_desk()
+{
+    std::lock_guard<std::mutex> lock(t_mutex); 
+    return t_accumulated_flicker_error;
+}
+
+ void lamp::set_state( bool state )
+ {
+     std::lock_guard<std::mutex> lock(t_mutex);
+     t_state = state;
+ }
+
+ bool lamp::get_state()
+ {
+    std::lock_guard<std::mutex> lock(t_mutex);
+    return t_state;
+ }
+
+ void lamp::set_occupied_value( float value )
+ {
+    std::lock_guard<std::mutex> lock(t_mutex);
+    t_occupied_value = value;
+ }
+
+float lamp::get_occupied_value()
+{
+    std::lock_guard<std::mutex> lock(t_mutex);
+    return t_occupied_value;
+}
+
+ void lamp::set_unoccupied_value( float value )
+ {
+    std::lock_guard<std::mutex> lock(t_mutex);
+    t_unoccupied_value = value;
+ }
+
+float lamp::get_unoccupied_value()
+{
+    std::lock_guard<std::mutex> lock(t_mutex);
+    return t_unoccupied_value;
+}
+
+void lamp::set_nominal_power( float value )
+ {
+    std::lock_guard<std::mutex> lock(t_mutex);
+    t_nominal_power = value;
+ }
+
+float lamp::get_nominal_power()
+{
+    std::lock_guard<std::mutex> lock(t_mutex);
+    return t_nominal_power;
+}

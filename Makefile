@@ -147,4 +147,5 @@ memory:
 		@leaks -fullContent -atExit -- $(EXE) | grep LEAK
 
 memory_all:
+		clear
 		@leaks -fullContent -atExit -- $(EXE)

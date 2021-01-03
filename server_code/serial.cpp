@@ -58,18 +58,18 @@ uint8_t communications::has_hub()
     if(DEBUG) std::cout << command1[0] << (int)(uint8_t)command1[1] << command1[2] << command1[3] << "\t"<< t_ec << std::endl;
     // std::cout << (int)(uint8_t)ch[0] << " " << (int)(uint8_t)ch[1] << " " << (int)(uint8_t)ch[2] << " " << (int)(uint8_t)ch[3] << "\t"<< t_ec << std::endl;
 
-
+    int num_lamps = 0;
     if( (command1[0] == 'A') && (command1[2] == ':') && (command1[3] == ')') )
     {
-        t_num_lamps =  (int)(uint8_t)command1[1];
+        num_lamps =  (int)(uint8_t)command1[1];
     }
 
-    if(DEBUG) std::cout << "It was found " << (int)t_num_lamps << " desk"<< ( (t_num_lamps != 1) ? "s" : "") << "!\n";
-    return t_num_lamps;
+    if(DEBUG) std::cout << "It was found " << num_lamps << " desk"<< ( (num_lamps != 1) ? "s" : "") << "!\n";
+    return num_lamps;
 }
 
 /*
-*   Ask to the Arduino the initial states
+*   Sends message to Arduino through serial
 */
 void communications::write_command( std::string command )
 {

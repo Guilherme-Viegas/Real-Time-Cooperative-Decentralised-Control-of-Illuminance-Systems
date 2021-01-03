@@ -34,7 +34,6 @@ private:    // this things are private
     boost::asio::streambuf t_buf_command {BUFFER_SIZE_COMMAND};
     boost::asio::streambuf t_buf_stream {BUFFER_SIZE_STREAM};
     boost::asio::streambuf t_buf {1};
-    uint8_t t_num_lamps = 0;
     bool t_coms_available = true;
 
     // functions
@@ -51,9 +50,6 @@ public:     // this things are public
     void write_command( std::string command );
     void read_until_asynchronous( office *the_office, char delimiter );
     void set_coms_not_available(){ t_coms_available = false; }
-    
-    int silent_retirar(){ return (int)t_num_lamps; }
-
 };
 
 #endif

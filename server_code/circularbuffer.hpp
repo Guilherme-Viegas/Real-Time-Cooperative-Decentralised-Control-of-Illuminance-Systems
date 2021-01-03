@@ -90,7 +90,7 @@ public: // this things are public
         return ring_out;
     }
 
-    void clear_all()
+    void restart()
     {
         std::lock_guard<std::mutex> lock(t_mutex);
 
@@ -98,7 +98,6 @@ public: // this things are public
         {
             t_ring[i] = 0;
         }
-        t_array_size = 0;
         t_is_full = false;
         t_is_empty = true;
         t_head = 0;

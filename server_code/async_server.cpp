@@ -38,9 +38,9 @@ void udp_server::handle_receive(const boost::system::error_code &error, size_t b
 
         std::string header = std::string(1, order) + '\t' + std::string(1, type) + '\t' + std::to_string(address) + '\t';
 
-        if (1 > address || address > t_database->t_num_lamps)
+        if (1 > address || address > t_database->get_num_lamps())
         {
-            std::string response = "The number of Total desks connected in the network is: " + std::to_string(t_database->t_num_lamps);
+            std::string response = "The number of Total desks connected in the network is: " + std::to_string(t_database->get_num_lamps());
 
             t_socket.async_send_to(boost::asio::buffer(response.c_str(), response.size()), t_remote_endpoint,
                                    [response](const boost::system::error_code &t_ec, std::size_t len) {
@@ -61,13 +61,13 @@ void udp_server::handle_receive(const boost::system::error_code &error, size_t b
 
 void udp_server::send_last_minute(std::string header, char type, int address)
 {
-    std::unique_ptr<float[]> value = t_database->t_lamps_array[address - 1]->t_lumminace.get_all();
+    std::unique_ptr<float[]> value = t_database->t_lamps_array[address - 1]->t_luminance.get_all();
 
     for (int i = 0; i < N_POINTS_MINUTE; i++)
     {
         std::string response = std::to_string(value[i]);
 
-        response = header + response.erase(response.size() - 5) + '\t' + std::to_string(i);
+        response = header + response.erase(response.size() - 5);
 
         t_socket.async_send_to(boost::asio::buffer(response.c_str(), response.size()), t_remote_endpoint,
                                [response](const boost::system::error_code &t_ec, std::size_t len) {
@@ -128,7 +128,7 @@ void tcp_server::start_accept()
                             [this](const boost::system::error_code &err) {
                                 if (!err)
                                 {
-                                    std::cout << "New TCP client! " << this << std::endl;
+                                    std::cout << "New TCP client! " << new_connection->t_client_address << std::endl;
                                     new_connection->start_timer();   // starts timer
                                     new_connection->start_receive(); // start receive instructions
                                 }
@@ -187,28 +187,21 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
         sscanf(command.c_str(), "%d %c %c %f", &address, &order, &type, &value);
 
         std::cout << "Received: '" << order << ' ' << type << ' ' << address << ' ' << value << "\t"
-                  << " bytes received: " << bytes_transferred << std::endl;
+                  << " bytes received: " << bytes_transferred << ' ' << "command: " << command << std::endl;
 
         std::string response = std::string(1, type) + '\t' + std::to_string(address) + '\t';
         int valid_response = 1; // 1: True , -1 : Fale, 0: do nothing
 
         if( command.compare("r") == 0 )
-        {
-            try
-            {
-std::cout << "Dar restart no puto" <<  std::endl;
-                t_serial->write_command("+rrrr");    
-                send_acknowledgement(true);
-            }
-            catch (const std::exception &e)
-            {
-                std::cout << e.what(); // information from length_error is los
-                send_acknowledgement(false);
-            }
-            valid_response = 0;
+        {   
+            t_serial->write_command("+rrrr");
+            t_database->t_clients_address.push_back(t_client_address);                                                                        // appends the clients address
+            t_database->t_clients_command.push_back("0A0");                                                                              // appends the new command
+            t_database->t_acknowledge.push_back(0);    
+            valid_response = 0;  
         }
 
-        else if (0 > address || address > t_database->t_num_lamps)
+        else if (0 > address || address > t_database->get_num_lamps())
         {   
             valid_response = -1;
         }
@@ -248,7 +241,7 @@ std::cout << "Dar restart no puto" <<  std::endl;
                     }
                     else
                     {
-                        response += std::to_string(t_database->t_lamps_array[address - 1]->t_nominal_power);
+                        response += std::to_string(t_database->t_lamps_array[address - 1]->get_nominal_power());
                     }
                     break;
                 }
@@ -272,7 +265,7 @@ std::cout << "Dar restart no puto" <<  std::endl;
                     }
                     else
                     {
-                        response += std::to_string(t_database->t_lamps_array[address - 1]->t_lumminace.get_newest());
+                        response += std::to_string(t_database->t_lamps_array[address - 1]->t_luminance.get_newest());
                     }
                     break;
                 }
@@ -284,7 +277,7 @@ std::cout << "Dar restart no puto" <<  std::endl;
                     }
                     else
                     {
-                        response += std::to_string(t_database->t_lamps_array[address - 1]->t_state == false ? t_database->t_lamps_array[address - 1]->t_unoccupied_value : t_database->t_lamps_array[address - 1]->t_occupied_value);
+                        response += std::to_string(t_database->t_lamps_array[address - 1]->get_state() == false ? t_database->t_lamps_array[address - 1]->get_unoccupied_value() : t_database->t_lamps_array[address - 1]->get_occupied_value());
                     }
                     break;
                 }
@@ -296,7 +289,7 @@ std::cout << "Dar restart no puto" <<  std::endl;
                     }
                     else
                     {
-                        response += std::to_string(t_database->t_lamps_array[address - 1]->t_occupied_value);
+                        response += std::to_string(t_database->t_lamps_array[address - 1]->get_occupied_value());
                     }
                     break;
                 }
@@ -308,7 +301,7 @@ std::cout << "Dar restart no puto" <<  std::endl;
                     }
                     else
                     {
-                        response += std::to_string(t_database->t_lamps_array[address - 1]->t_state);
+                        response += std::to_string(t_database->t_lamps_array[address - 1]->get_state());
                     }
                     break;
                 }
@@ -344,7 +337,7 @@ std::cout << "Dar restart no puto" <<  std::endl;
                     }
                     else
                     {
-                        response += std::to_string(t_database->t_lamps_array[address - 1]->t_unoccupied_value);
+                        response += std::to_string(t_database->t_lamps_array[address - 1]->get_unoccupied_value());
                     }
                     break;
                 }
@@ -379,7 +372,7 @@ std::cout << "Dar restart no puto" <<  std::endl;
                 }
                 else
                 {
-                    valid_response = 0; // personal message
+                    valid_response = 0; // arduino message
                     std::string client_msg = std::to_string(address) + std::string(1, order) + std::to_string(round(value * 10));
                     std::cout << t_client_address << "\t" << client_msg << std::endl;
 
@@ -411,7 +404,7 @@ std::cout << "Dar restart no puto" <<  std::endl;
 
         if (valid_response == -1)
         {
-            response = "The number of Total desks connected in the network is: " + std::to_string(t_database->t_num_lamps);
+            response = "The number of Total desks connected in the network is: " + std::to_string(t_database->get_num_lamps());
         }
         
         if (valid_response != 0) // there is a response to send

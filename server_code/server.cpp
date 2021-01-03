@@ -7,7 +7,7 @@
 
 #define INIT_COMMAND "+RPiS"
 #define TIME_TO_SHUT_DOWN 0
-#define NUM_THREADS 4
+#define NUM_THREADS 2
 
 // global variable to control whether the server runs or not
 boost::asio::io_context io;
