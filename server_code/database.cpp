@@ -3,7 +3,7 @@
 
 office::office( uint8_t num_lamps ) : t_num_lamps(num_lamps)
 {   
-    if(DEBUG) std::cout << "Welcome to the Office!\n";    // greeting
+    if(DEBUG) std::cout << "Welcome to the Office!: " << this << std::endl;    // greeting
 
     t_lamps_array = new lamp* [t_num_lamps];    // creats an array of lamps and return he array of poiters to lamps
 
@@ -15,7 +15,7 @@ office::office( uint8_t num_lamps ) : t_num_lamps(num_lamps)
 
 office::~office()
 {   
-    if(DEBUG) std::cout << "\nExits the office, see you later aligator!\n"; // goodbye message
+    if(DEBUG) std::cout << "\nExits the office, see you later aligator! "  << this << std::endl ; // goodbye message
     for( int l=0; l<t_num_lamps; l++) { delete t_lamps_array[l]; }    // free the memory of each lamp
     delete[] t_lamps_array;  // free the memory of the array of teh lamps' address
 }
@@ -339,3 +339,4 @@ void lamp::compute_performance_metrics_at_desk( float new_luminance, float new_d
     t_luminance_prev_1 = new_luminance;
     t_duty_cicle_prev = new_duty_cicle;
 }
+

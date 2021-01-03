@@ -2,10 +2,11 @@
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <unistd.h>
+#include <fstream>
 
 #define BUFFER_SIZE 1024
 #define PORT 18700
-#define COMS_MSG "Command not found. Type 'Comds' to see a list of available commands!\n"
+#define COMS_MSG "Command not found. Type 'Comds' to see a list of available commands!" << std::endl
 #define CLOSE_TCP std::cout << "Close TCP client!" << std::endl
 #define CLOSE_UDP std::cout << "Close UDP connection!" << std::endl
 
@@ -20,6 +21,43 @@ bool stop_server = false;
 bool tcp_connection = false;
 bool udp_connection = false;
 
+// file 
+std::ofstream file;
+
+void print_commands()
+{
+    std::cout << "---------------------------------------------TCP Commands---------------------------------------------" << std::endl; 
+    std::cout << "| g l <i>     - get the illuminance at desk with address <i>                                         |" << std::endl;
+    std::cout << "| g d <i>     - get the current duty-cycle at luminaire <i>                                          |" << std::endl;
+    std::cout << "| g o <i>     - get current occupancy state at desk <i> -  - 0 unoccupied OR 1 occupied              |" << std::endl;
+    std::cout << "| o <i> <val> - set current occupancy at desk <i> - 0 unoccupied OR 1 occupied                       |" << std::endl;
+    std::cout << "| g O <i>     - get lower bound on illuminance for occupied state at desk                            |" << std::endl;
+    std::cout << "| O <i> <val> - set lower bound on illuminance at <val> for occupied state at desk <i>               |" << std::endl;
+    std::cout << "| g U <i>     - get lower bound on illumincance for unoccupied state at desk <i>                     |" << std::endl;
+    std::cout << "| U <i> <val> - set lower bound on illumincance at <val> for unoccupied sate at desk <i>             |" << std::endl;
+    std::cout << "| g L <i>     - get current illumincance lower bound at desk                                         |" << std::endl;
+    std::cout << "| g x  <i>    - get current external illuminance at desk <i>                                         |" << std::endl;
+    std::cout << "| g r <i>     - get current illuminance control refeence at desk <i>                                 |" << std::endl;
+    std::cout << "| g c <i>     - get current energy cost at desk <i>                                                  |" << std::endl;
+    std::cout << "| c <i> <val> - set current energy cost at desk <i>                                                  |" << std::endl;
+    std::cout << "| g p <i>     - get instantaneous power consumption at desk <i>                                      |" << std::endl;
+    std::cout << "| g p T       - get instantaneous power consumption in the whole system                              |" << std::endl;
+    std::cout << "| g t <i>     - get elapsed time since last restart                                                  |" << std::endl;
+    std::cout << "| g e <i>     - get accumulated energy consumption at desk <i> since the last  system restart        |" << std::endl;
+    std::cout << "| g e T       - get total accumulated energy consumption since last system restart                   |" << std::endl;
+    std::cout << "| g v <i>     - get accumulated  visibility error at desk <i> since last system restart              |" << std::endl;
+    std::cout << "| g v T       - get total visibility error since last system restart                                 |" << std::endl;
+    std::cout << "| g f <i>     - get accumulated flicker error at desk <i> since last system restart                  |" << std::endl;
+    std::cout << "| g f T       - get total flicker error since last system restart                                    |" << std::endl;
+    std::cout << "| r           - restart system                                                                       |" << std::endl;
+    std::cout << "|--------------------------------------------UDP Commands--------------------------------------------|" << std::endl;
+    std::cout << "| b <x> <i>   - get last minute buffer of variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'      |" << std::endl;
+    std::cout << "| s <x> <i>   - stop stream of real-time variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'       |" << std::endl;
+    std::cout << "| file        - at the end of a command to open and write values from UDP streams                    |" << std::endl;
+    std::cout << "------------------------------------------------------------------------------------------------------" << std::endl;
+
+}
+
 void udp_start_read_server(ip::udp::socket *client)
 {
     client->async_receive(buffer(udp_message, BUFFER_SIZE),
@@ -28,12 +66,12 @@ void udp_start_read_server(ip::udp::socket *client)
                               {
                                   std::string command = std::string(udp_message.begin(), udp_message.begin() + bytes_transferred);
                                   std::cout << "[UDP] server: " << command << std::endl;
+                                  if(file.is_open()){ file << command.substr(6, command.size()).append("\n"); }
                                   udp_start_read_server(client);
                               }
                               else
                               {
                                   CLOSE_UDP;
-                                  ;
                                   udp_connection = false;
                                   client->close();
                               }
@@ -66,11 +104,11 @@ void print_invalid_command()
 
     if (!udp_connection)
     {
-        std::cout << "UDP connection not available.";
+        std::cout << "UDP connection not available." << std::endl;
     }
     if (!tcp_connection)
     {
-        std::cout << "TCP connection not available.";
+        std::cout << "TCP connection not available." << std::endl;
     }
 }
 
@@ -82,8 +120,6 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                          if (!err && bytes_transferred)
                          {
                              // init variables
-                             int size = stm_buff.size();
-
                              char order = '.';
                              char type = '.';
                              unsigned int address = 0;
@@ -91,15 +127,49 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                              char input[]{};
                              const char *command{};
                              std::string str_command;
-                             bool valid_command = true;
+                             int valid_command = 1;
                              float set_value = 0.0;
+                             
 
                              // read input
-                             stm_buff.sgetn(input, size); //size-1
+                             int size = stm_buff.size();
+                             stm_buff.sgetn(input, size); 
                              stm_buff.consume(size);
+                             std::string str_input = std::string(input);
+
+
+                             // find the word 'file' 
+                             int file_itr = str_input.find("file");
+                             if( file_itr != -1 )   // writes in file
+                             {  
+                                 if(file_itr > 0 ){file_itr--;} // removes the space before it
+                                 str_input.erase(file_itr,5);
+                                 
+                                 if(!file.is_open())
+                                 {  
+                                    file.open(str_input.substr(0, str_input.size()-1).append(".txt"), std::ofstream::out );
+                                 }
+                             }
+                             // find the word 'close' 
+
+                             else if( str_input.find("close") != -1 )   // writes in file
+                             {  
+                                 stop_server = true;
+                                 return; 
+                             }
+
+                             // find the word 'Comds' 
+                             else if( str_input.find("Comds") != -1  )   // writes in file
+                             {  
+                                 print_commands();
+                                 start_read_input(stm_desc, tcp_client, udp_client);
+                             }
+
+                             
+                             str_input.append("\n");    // makes'\n' a delimiter
 
                              // get order
-                             sscanf(input, "%c %[^\n]", &order, trash);
+                             sscanf(str_input.c_str(), "%c %[^\n]", &order, trash);
                              if (!order)
                              {
                                  order = input[0];
@@ -111,16 +181,16 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                                  std::cout << "Async terminal read off" << std::endl;
                                  return;
                              } // error occurred
-                             //else if( strlen(command) != 3 ){ std::cout << "Usage: <order> <type> <address> -> 3 bytes, instead of " << strlen(command) << std::endl ; }
 
                              // commands for UDP server
                              switch (order)
                              {
                              case 'b': // get last minute buffer of variable <x> of desk <i>
                              case 's': // start/stop stream of real-time variable <x> of desk <i>
-                             {
+                             {   
+                                 valid_command = 0; // ignores
                                  sscanf(trash, "%c %u %[^\n]", &type, &address, trash);
-                                 if ((type == 'l' || type == 'd'))
+                                 if ((type == 'l' || type == 'd') && udp_connection)
                                  {
                                      str_command = std::string(1, order) + std::string(1, type) + std::to_string(address);
                                      command = str_command.c_str();
@@ -140,6 +210,7 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                              case 'g': // get commands
                              {
                                  sscanf(trash, "%c %u %[^\n]", &type, &address, trash);
+                                 std::cout << "type: " << type << " address: " << address << " trash: " << trash <<  std::endl;
                                  switch (type)
                                  {
                                  case 'e': // get accumulated energy consumption in the system <T> or at desk <i> since the last restart
@@ -168,7 +239,7 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                                  }
                                  default:
                                  {
-                                     valid_command = false;
+                                     valid_command = -1;
                                      break;
                                  }
                                  }
@@ -181,36 +252,41 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                              {
                                  std::string str_trash = std::string(trash);
                                  int b_ = str_trash.find(' ');
-                                 address = (int)std::stoi(str_trash.substr(0, b_));
-                                 set_value = std::stof(str_trash.substr(b_));
-
+                                 try
+                                 {
+                                    address = (int)std::stoi(str_trash.substr(0, b_));
+                                    set_value = std::stof(str_trash.substr(b_));
 std::cout << "trash: '" << trash << "' Address: '" << address << "' Float Set: '" << set_value << "'" << std::endl;
-                                 str_command = std::to_string(address) + std::string(1, order) + 's' + std::to_string(set_value);
+                                    str_command = std::to_string(address) + std::string(1, order) + 's' + std::to_string(set_value);
+                                 }
+                                 catch (const std::exception& e)
+                                 {
+                                     valid_command = -1;
+                                 }
                                  break;
                              }
                              case 'r':  // restart system
                              {   
-                                 if( strlen(trash) == 1)
+                                 if( strlen(input) == 2 && input[1] == '\n'  )
                                  {
                                      str_command = std::string(1,order);
                                  }
                                  else
                                  {
-                                     valid_command = false;
+                                     valid_command = -1;
                                  }
                                  
-
                                  break;
                              }
                              default:
                              {
-                                 valid_command = false;
+                                 valid_command = -1;
                                  break;
                              }
                              }
 
                              command = str_command.c_str();
-                             if (valid_command)
+                             if (valid_command==1 && tcp_connection)
                              {
                                  tcp_client->async_send(buffer(command, strlen(command)),
 
@@ -219,7 +295,7 @@ std::cout << "trash: '" << trash << "' Address: '" << address << "' Float Set: '
                                                             std::cout << "[TCP] client: " << str_command << std::endl;
                                                         });
                              }
-                             else
+                             else if (valid_command == -1)
                              {
 std::cout << "comando inválido linha 216" << std::endl;
                                  print_invalid_command();
@@ -265,10 +341,13 @@ void start_UDP_connection(ip::udp::socket *udp_socket, ip::udp::endpoint *udp_en
                               });
 }
 
+
+
 int main()
 {
     io_context io;
 
+    // Connects to the endpoints
     // https://www.whatismyip.com
     ip::tcp::socket tcp_socket(io);
     ip::tcp::endpoint tcp_endpoint(ip::address::from_string("127.0.0.1"), PORT); // 46.189.132.92
@@ -291,16 +370,23 @@ int main()
         io.poll_one();
     }
 
-    if (tcp_socket.is_open())
+    if ( tcp_socket.is_open() )
     {
         tcp_socket.close();
         CLOSE_TCP;
     }
-    if (udp_socket.is_open())
+    if ( udp_socket.is_open() )
     {
         udp_socket.close();
         CLOSE_UDP;
     }
+
+    if ( file.is_open() )
+    {
+        file.close();
+    }
+
+    return 0;
 }
 
 // void connect_handler(const boost::system::error_code& error)

@@ -9,7 +9,7 @@
 #include "circularbuffer.hpp"
 
 
-#define N_POINTS_MINUTE 600
+#define N_POINTS_MINUTE 6000
 #define SAMPLE_TIME_MILIS 10
 
 /*
@@ -54,6 +54,7 @@ public:     // this things are public
     float get_accumulated_visibility_error_at_desk(){ return t_accumulated_visibility_error; }
     float get_accumulated_flicker_error_at_desk(){ return t_accumulated_flicker_error; }
     void compute_performance_metrics_at_desk( float new_luminance = 0.0, float new_duty_cicle = 0.0 );
+
 };
 
 /*
@@ -64,7 +65,6 @@ class office
 
 private:    // this things are private
     float t_time_since_restart = 0.0;
-    bool t_office_is_open = false; // TODO
 
     // streams
     bool t_stream = false;
@@ -81,7 +81,7 @@ public:     // this things are public
 
     // it is access by the async_server
     lamp** t_lamps_array;
-    int t_num_lamps = -1; // TODO
+    int t_num_lamps = -1; // TODO comando para dar update se houver um restart
 
     // async operation
     std::vector < std::string > t_clients_address {};
@@ -92,8 +92,6 @@ public:     // this things are public
     ~office();
     
     double get_elapesd_time_since_last_restart(){ return t_time_since_restart; }
-    bool get_state(){ return t_office_is_open; }
-    void set_state( bool state ){ t_office_is_open = state; }
     void updates_database( char command[], uint8_t size );
     void float_2_bytes(float fnum, u_int8_t bytes[2]) const;
 

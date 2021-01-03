@@ -79,14 +79,14 @@ run_client:
 		@echo "            |   |                           {_.='}            |   |				"
 		@echo "            |   |                      \    {_.='}    /       |   |				"
 		@echo "            |   |                          ,.____.,           |   |				"
-		@echo "            |   |                         /   ()   \          |   |				"
-		@echo "            |   |                   -    |    \/    |    -    |   |				"
-		@echo "            |   |                         \   /\   /          |   |				"
-		@echo "            |   |                          '' __ ''           |   |				"
-		@echo "            |   |                      /              \       |   |				"
+		@echo "            |   |  Type 'Comds':          /   ()   \          |   |				"
+		@echo "            |   |   to get the      -    |    \/    |    -    |   |				"
+		@echo "            |   |   list of               \   /\   /          |   |				"
+		@echo "            |   |   availabe               '' __ ''           |   |				"
+		@echo "            |   |   commands.          /              \       |   |				"
 		@echo "            |   |                             |               |   |				"
-		@echo "            |   |                                             |   |				"
-		@echo "            |   |                                             |   |				"
+		@echo "            |   |  Type 'close':                              |   |				"
+		@echo "            |   |   to close the client.                      |   |				"
 		@echo "            |   |_____________________________________________|   |				"
 		@echo "            |                                                     |				"
 		@echo "            \____________________________________________________/				"
@@ -103,10 +103,10 @@ run_client:
 
 
 # creats multiple client
-# e.g. make client C=3 CMD="./phoenix g l 2"
-run_n_client:
+# e.g. make run_n_clients C=3 CMD="./client_exe g l"
+run_n_clients:
 		@num=1 ; while [[ $$num -le $(C) ]] ; do \
-			x-terminal-emulator -hold -e "$(CMD)" & \
+			x-terminal-emulator -hold -e "$(CMD) num" & \
 			((num = num + 1)) ; \
 		done
 

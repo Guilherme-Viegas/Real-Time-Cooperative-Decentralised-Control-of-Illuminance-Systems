@@ -5,7 +5,6 @@
 #include <iostream>
 #include <string>   // for std::string
 #include <sstream> //for std::stringstream 
-#include <thread>
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
@@ -65,6 +64,7 @@ private:
 public:
 
     tcp_connection(boost::asio::io_service *io, office *database, communications *serial);
+    ~tcp_connection(){ if(t_socket.is_open()){ t_socket.close(); } }
 
     void new_client(){ t_ss << &t_socket; t_client_address = t_ss.str(); }
     tcp::socket &socket(){ new_client(); return t_socket; }
@@ -82,8 +82,7 @@ class tcp_server
 private:
     void start_accept();
 
-    // void handle_accept(boost::shared_ptr<tcp_connection> new_connection, const boost::system::error_code &error);
-    
+    tcp_connection *new_connection;
     office *t_database;
     communications *t_serial;
 
@@ -92,7 +91,7 @@ private:
 
 public:
     tcp_server(boost::asio::io_service *io, unsigned short port, office *database, communications *serial);
-    ~tcp_server(){ t_acceptor.close(); }
+    ~tcp_server(){ t_acceptor.close(); delete new_connection; }
 };
 
 #endif
