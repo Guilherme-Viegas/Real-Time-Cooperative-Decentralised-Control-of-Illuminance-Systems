@@ -39,14 +39,11 @@ int main()
     // init serial
     communications the_serial{&io};
 
-    // uint8_t num_lamps = the_serial.has_hub();
-    // if( num_lamps <= 0 )
-    // {
-    //     stop_server = true;
-    //     std::cout << "Early exit with" << (int)num_lamps << " lamps" << std::endl;
-    //     //return 0;
-    // }
-    uint8_t num_lamps = 1;
+    uint8_t num_lamps = the_serial.has_hub();
+    if( num_lamps <= 0 )
+    {
+        std::cout << "Early exit with" << (int)num_lamps << " lamps" << std::endl;
+    }
     office the_office{num_lamps};
 
     tcp_server server_tcp{&io, PORT, &the_office, &the_serial};

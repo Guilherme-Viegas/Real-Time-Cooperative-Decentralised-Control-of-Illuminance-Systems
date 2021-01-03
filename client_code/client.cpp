@@ -142,8 +142,8 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                              std::string str_input = std::string(input);
 
                              // find the word 'file'
-                             int file_itr = str_input.find("file");
-                             if (file_itr != -1 && (str_input[0] == 'b' || str_input[0] == 's')) // writes in file
+                             std::size_t file_itr = str_input.find("file");
+                             if (file_itr != std::string::npos && (str_input[0] == 'b' || str_input[0] == 's')) // writes in file
                              {
                                  if (file_itr > 0)
                                  {
@@ -153,19 +153,20 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
 
                                  if (!file.is_open())
                                  {
-                                     file.open(str_input.substr(0, str_input.size() - 1).append(".txt"), std::ofstream::out);
+                                     file.open(str_input.substr(0, str_input.size()).append(".txt"), std::ofstream::out);
+                                     std::cout << "ola: " << str_input.substr(0, str_input.size()-1) << std::endl;
                                  }
                              }
                              // find the word 'close'
 
-                             else if (str_input.find("close") != -1) // writes in file
+                             else if (str_input.find("close") != std::string::npos) // writes in file
                              {
                                  stop_server = true;
                                  return;
                              }
 
                              // find the word 'Comds'
-                             else if (str_input.find("Comds") != -1) // writes in file
+                             else if (str_input.find("Comds") != std::string::npos) // writes in file
                              {
                                  print_commands();
                                  start_read_input(stm_desc, tcp_client, udp_client);

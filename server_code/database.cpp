@@ -145,13 +145,13 @@ void office::updates_database( char command[], uint8_t size )
         break;
     }
     default:
-        //std::cout << "Default at switch " << (int)(uint8_t)desk << std::endl;
+        std::cout << "Default at switch " << address << std::endl;
         break;
     }
     if( set_command != 0 )   // happens when the arduino return same value that was set by the client 
     {
         std::string client_msg = std::to_string(address) + std::string(1, order) + std::to_string(round(value * 10));
-        for (int clt = 0; clt < t_clients_address.size() ; clt++)
+        for(unsigned int clt = 0; clt < t_clients_address.size() ; clt++)
         {
             if ( ! t_clients_command.at(clt).compare(client_msg) )   // return status
             {
