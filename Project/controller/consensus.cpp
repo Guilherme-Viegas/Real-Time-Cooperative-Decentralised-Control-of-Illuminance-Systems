@@ -7,11 +7,17 @@ Consensus::~Consensus() {
 }
 
 void Consensus::Init(float _lower_L_bound, float _local_offset, float _local_gains[3], float _local_cost) {
+  current_num_of_iterations = 0;
   lower_L_bound = _lower_L_bound;
   local_offset = _local_offset;
   local_cost = _local_cost;
   for(byte i = 0; i < 3; i++) {
     local_gains[i] = (_local_gains[i] * 255.0) / 100.0;
+    avg_dimming[i] = 0;
+    lagrange_multipliers[i] = 0;
+    for(byte j; j<3; j++) {
+        dimmings[i][j] = 0;
+    }
   }
 }
 
@@ -23,12 +29,9 @@ void Consensus::computeValueToSend(byte my_address, int number_of_addresses, byt
     proposedDimmingVector = computeBoundarySolutions(my_address, number_of_addresses-1, nodes_addresses);
   }
 
-  Serial.print("Values to send ");
   for(byte i=0; i < number_of_addresses-1; i++) {
-    Serial.print(String(proposedDimmingVector[i]) + " ");
     dimmings[retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1][i] = proposedDimmingVector[i];
-  }
-  
+  }  
 }
 
 /*
@@ -38,17 +41,16 @@ bool Consensus::FeasibilityCheck(float dimming_to_check[3], byte my_address, int
   float total_lux = 0;
 
   for(byte i = 0; i < number_of_nodes; i++) {
-    if(dimming_to_check[i] < lower_actuator_bound) {
+    if(dimming_to_check[i] < lower_actuator_bound - tolerance) {
       return false;
     }
-    if(dimming_to_check[i] > upper_actuator_bound) {
+    if(dimming_to_check[i] > upper_actuator_bound + tolerance) {
       return false;
     }
     total_lux += local_gains[i] * dimming_to_check[i];
   }
   
-  if( total_lux < (lower_L_bound - local_offset) ) {
-    Serial.println("Total Lux " + String(total_lux));
+  if( total_lux < (lower_L_bound - local_offset - tolerance) ) {
     return false;
   }
   return true;
@@ -151,7 +153,6 @@ float Consensus::computeCost(float vector_dimming[3], int number_of_nodes, byte 
     }
   }
   cost += 0.5*optimization_rho*( pow(computeNorm(vector_for_norm, number_of_nodes), 2) );
-  Serial.println("COST " + String(cost));
   return cost;
 }
 
@@ -159,10 +160,8 @@ float Consensus::computeCost(float vector_dimming[3], int number_of_nodes, byte 
 //************ UPDATE LAGRANGE MULTIPLIERS *******
 void Consensus::updateLagrandeMultipliers(byte my_address, int number_of_addresses, byte nodes_addresses[4]) {
   float *proposed_dimmings_vals = dimmings[(retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)];
-  Serial.print("Lagrange: ");
   for(byte i = 0; i < number_of_addresses-1; i++) {
     lagrange_multipliers[i] += optimization_rho * ( proposed_dimmings_vals[i] - avg_dimming[i] );
-    Serial.print(String(lagrange_multipliers[i]) + " ");
   }
 }
 
@@ -186,8 +185,8 @@ int Consensus::getCurrentIteration() {
   return current_num_of_iterations;
 }
 
-float Consensus::getMyDimming(byte my_address, int number_of_addresses, byte nodes_addresses[4]) {
-  return dimmings[(retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)][(retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)];
+float Consensus::getFinalDimming(byte my_address, int number_of_addresses, byte nodes_addresses[4]) {
+  return avg_dimming[(retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)];
 }
 
 void Consensus::updateDimmings( byte my_address, int number_of_addresses, byte nodes_addresses[4], float tmpDimmings[3][3] ) {

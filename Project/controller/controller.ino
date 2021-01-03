@@ -3,6 +3,7 @@
 #include <mcp2515.h>
 #include "can_buffer.cpp"
 #include "consensus.hpp"
+//__attribute__((optimize("O0")))
 
 #define BUFFER_SIZE 5 // number of char to read plus \0 (For hub)
 
@@ -30,7 +31,10 @@ boolean DEBUG = true;
  * GENERIC VARIABLES                   |
 ---------------------------------------|*/
 float my_cost = 1;
-float lower_bound_L = 20.0;
+float lower_L_bound = 20.0;
+float lower_L_occupied = 50.0;
+float lower_L_unoccupied = 200.0;
+bool occupancy = false; // true if desk is occupied
 
 
 /*-------------------------------------|
@@ -43,7 +47,7 @@ state_machine prev_state = booting;
 /*------------------------|
  * TYPE OF MESSAGES       |
 --------------------------|*/
-enum msg_types {hello=1, olleh=2, ack=3, turn_off_led=4, read_offset_value=5, read_gain=6, your_time_master=7, start_consensus=8, sending_consensus_val=9, hub_get_current_lux = 255, hub_send_current_lux = 254};
+enum msg_types {hello=1, olleh=2, ack=3, turn_off_led=4, read_offset_value=5, read_gain=6, your_time_master=7, start_consensus=8, sending_consensus_val=9, turn_max_led=10, hub_get_current_lux = 255, hub_send_current_lux = 254, hub_get_current_dimming=253, hub_send_current_dimming=252, hub_set_occupancy=251, hub_sending_ack=250};
 msg_types msg_to_send;
 /*-------------------------------------------
  * VARIABLES FOR THE CALIBRATION            |
@@ -140,7 +144,7 @@ void irqHandler() {
     mcp2515_overflow = true;
     mcp2515.clearRXnOVRFlags();
   }
-  //mcp2515.clearInterrupts();
+  mcp2515.clearInterrupts();
   interrupt = true; //notify loop()
 }
 
@@ -158,7 +162,7 @@ MCP2515::ERROR write(uint32_t id, uint32_t val){
   my_can_msg msg;
   msg.value = val; //pack data
   if(DEBUG) {
-    Serial.println("NEW MESSAGE:\n");
+    Serial.println(F("NEW MESSAGE:\n"));
     Serial.println("ID: " + String(frame.can_id));
   }
   for ( byte i = 0; i < 4; i++ ){ //prepare can message
@@ -181,7 +185,7 @@ void writeMsg(int id, byte msg_type, byte sender_address, float dimming=-1, byte
     val += (unsigned long)inBytes[1]<<16;
     val += (unsigned long)inBytes[0]<<24;
     if ( write( index , val ) != MCP2515::ERROR_OK )
-      Serial.println( "\t\t\t\tMCP2515 TX Buf Full" );
+      Serial.println( F("\t\t\t\tMCP2515 TX Buf Full") );
     free(inBytes);
   }
   else{
@@ -199,25 +203,25 @@ void writeMsgWithFloat(int id, byte msg_type, byte sender_address, float value =
   val += (unsigned long)inBytes[1]<<16;
   val += (unsigned long)inBytes[0]<<24;
   if ( write( id , val ) != MCP2515::ERROR_OK )
-    Serial.println( "\t\t\t\tMCP2515 TX Buf Full" );
+    Serial.println( F("\t\t\t\tMCP2515 TX Buf Full") );
   free(inBytes);
 }
 
 void smallMsg(int id, byte msg_type, byte sender_address) {
   int val = (sender_address<<8)+msg_type;  //Convert 2 bytes into 1 int, with byte 0 being msg_type and byte 1 being sender addr
   if ( write( id , val ) != MCP2515::ERROR_OK )
-      Serial.println( "\t\t\t\tMCP2515 TX Buf Full" );
+      Serial.println( F("\t\t\t\tMCP2515 TX Buf Full") );
 }
 
 void readMsg(int *frames_size, can_frame frames[20]){
   int counter = 0;
   if ( mcp2515_overflow ) {
-    Serial.println( "\t\t\t\tMCP2516 RX Buf Overflow" );
+    Serial.println( F("\t\t\t\tMCP2516 RX Buf Overflow") );
     mcp2515_overflow = false;
   }
 
   if( arduino_overflow ) {
-    Serial.println( "\t\t\t\tArduino Buffers Overflow" );
+    Serial.println( F("\t\t\t\tArduino Buffers Overflow") );
     arduino_overflow = false;
   }
   
@@ -257,7 +261,7 @@ void setup() {
   //Must tell SPI lib that ISR for interrupt vector zero will be using SPI
   SPI.usingInterrupt(0);
   mcp2515.reset();
-  mcp2515.setBitrate(CAN_1000KBPS, MCP_16MHZ);
+  mcp2515.setBitrate(CAN_1000KBPS, MCP_20MHZ);
   mcp2515.setNormalMode();
   
   pid.ldr.setGain( pid.getLedPin(), m, b );
@@ -265,11 +269,10 @@ void setup() {
   pid.ldr.t_tau_down.setParametersABC( 15.402250,  -0.015674, 8.313158); // values computed in the python file
 
   if(DEBUG)
-    Serial.println("Set up completed");
+    Serial.println(F("Set up completed"));
   
-  //pid.setReferenceLux( 30 ); // sets the minimum value in the led ( zero instant )
   //if(pid.has_feedback()){initInterrupt1();}
-  //initInterrupt1();
+  initInterrupt1();
   nodes_addresses[0] = 0;
   nodes_addresses[1] = my_address;
   number_of_addresses = 2;  
@@ -283,11 +286,7 @@ float getValueMsg(can_frame frame){
   byte value[2];    
   value[0] = frame.data[2];
   value[1] = frame.data[3];
-  if(DEBUG)
-    Serial.println("3rd byte: " + String(value[0]) + "\t4th byte: " + String(value[1]));
   float x = bytes2float(value);
-  if(DEBUG)
-    Serial.println("VALOR Recebido: " + String(x));
   return x;
 }
 
@@ -370,11 +369,35 @@ void calibration_function() {
     } else if( prev_state == w8ing_ack ) {
         pid.led.setBrightness(0);
         if(my_address == nodes_addresses[number_of_addresses-1]) {
-          prev_state = my_state;
-          my_state = ready_consensus;
-          consensus.Init(lower_bound_L, my_offset, my_gains_vect, my_cost);
-          msg_to_send = start_consensus;
-          writeMsg(0, msg_to_send, my_address);
+          lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
+          byte flag = checkBoundsOnAskedLux(lower_L_bound);
+          if(flag == -1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_off_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 0;
+              pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+              LOOP = true;
+              SIMULATOR = true;
+          } else if(flag == 1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_max_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 100;
+              pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+              LOOP = true;
+              SIMULATOR = true;
+          } else {
+              prev_state = my_state;
+              my_state = ready_consensus;
+              consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost);
+              msg_to_send = start_consensus;
+              writeMsg(0, msg_to_send, my_address);
+              LOOP = false;
+              SIMULATOR = false;
+          }
         } else {
           master = false;
           if(number_of_addresses > 2) {
@@ -446,7 +469,8 @@ void w8ing_consensus_msgs_function() {
     if(consensus.getCurrentIteration() >= max_iterations) {
       prev_state = my_state;
       my_state = standard;
-      finalDimming = consensus.getMyDimming(my_address, number_of_addresses, nodes_addresses);
+      finalDimming = consensus.getFinalDimming(my_address, number_of_addresses, nodes_addresses);
+      pid.setReferenceLux( (finalDimming*255.0)/100.0 );
     }
   }
 }
@@ -472,8 +496,19 @@ void check_messages(can_frame new_msg){
       ack_number++;
   } else if( new_msg.data[0] == turn_off_led ) {
       pid.led.setBrightness(0);
+      finalDimming = 0;
+      if(my_offset != -1) {
+        LOOP = true;
+        SIMULATOR = true;
+        pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+      }
       msg_to_send = ack;
       writeMsg(new_msg.data[1], msg_to_send, my_address);
+  } else if(new_msg.data[0] == turn_max_led ) {
+      finalDimming = 100;
+      pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+      LOOP = true;
+      SIMULATOR = true;
   } else if( new_msg.data[0] == read_offset_value  ) {
       my_offset = pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true);
       msg_to_send = ack;
@@ -491,9 +526,13 @@ void check_messages(can_frame new_msg){
   } else if( new_msg.data[0] == start_consensus) {
       prev_state = my_state;
       my_state = ready_consensus;
-      consensus.Init(lower_bound_L, my_offset, my_gains_vect, my_cost);
+      lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
+      consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost);
+      LOOP = false;
+      SIMULATOR = false;
   } else if( new_msg.data[0] == sending_consensus_val ) {
       byte value_received[2] = {new_msg.data[2], new_msg.data[3]};
+      //Index of the node of value received is stored in can_id, because this messages never go to one node specifically
       tmp_received_dimmings[retrieve_index(nodes_addresses, number_of_addresses, new_msg.data[1]) - 1][new_msg.can_id] = bytes_2_float_2decimals(value_received);
       num_consensus_msgs++;
   }
@@ -503,11 +542,36 @@ void check_messages(can_frame new_msg){
       msg_to_send = hub_send_current_lux;
       writeMsgWithFloat(new_msg.data[1], msg_to_send, my_address, pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true));
   } else if( (new_msg.data[0] == hub_send_current_lux) and (new_msg.can_id == my_address) ) {
-      Serial.write("+");
-      Serial.write('I');
+      Serial.write("+I");
       Serial.write(new_msg.data[1]);
       Serial.write(new_msg.data[2]);
       Serial.write(new_msg.data[3]);
+  } else if( (new_msg.data[0] == hub_get_current_dimming) and (new_msg.can_id == my_address) ) {
+      msg_to_send = hub_send_current_lux;
+      writeMsgWithFloat(new_msg.data[1], msg_to_send, my_address, finalDimming);
+  } else if( (new_msg.data[0] == hub_send_current_dimming) and (new_msg.can_id == my_address) ) {
+      Serial.write("+d");
+      Serial.write(new_msg.data[1]);
+      Serial.write(new_msg.data[2]);
+      Serial.write(new_msg.data[3]);
+  } else if((new_msg.data[0] == hub_set_occupancy) and (new_msg.can_id == my_address)) {
+      byte received_val[2] = {new_msg.data[2], new_msg.data[3]};
+      bool received_occ = (bool)bytes2float(received_val);
+      if(occupancy != received_occ) {
+        occupancy = received_occ;
+        prev_state = my_state;
+        my_state = ready_consensus;
+        lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
+        consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost);
+        LOOP = false;
+        SIMULATOR = false;
+        msg_to_send = hub_sending_ack;
+        writeMsg(new_msg.data[1], msg_to_send, my_address);
+        msg_to_send = hub_sending_ack;
+        writeMsg(new_msg.data[1], msg_to_send, my_address);
+        msg_to_send = start_consensus;
+        writeMsg(0, msg_to_send, my_address);
+      }
   }
 }
 
@@ -559,6 +623,7 @@ void loop() {
         float *my_dimmings = consensus.getDimmings(my_address, number_of_addresses, nodes_addresses);
         for(byte i=0; i<number_of_addresses-1; i++) {
           writeMsg(0, msg_to_send, my_address, my_dimmings[i], i);
+          delay(1);
         }
         prev_state = my_state;
         my_state = w8ing_consensus_msgs;
@@ -592,10 +657,10 @@ void loop() {
   if(Serial.available()){ transmitting = hub(); } 
 
   if (LOOP){
-    //pid.led.setBrightness( pid.getU() );
+    pid.led.setBrightness( pid.getU() );
 
     if(SIMULATOR){
-      pid.simulator( true );
+      pid.simulator( false );
       pid.output();
     }
   }
@@ -609,8 +674,7 @@ ISR(TIMER1_COMPA_vect)
   if(transmitting)
     { 
       //TODO: Change this for only activating a interrupt flag, and only in loop it check the flag, if true: sends the msgs to the other nodes to ask for values and sends it's values via serial
-      Serial.write("+");
-      Serial.write("s");
+      Serial.write("+s");
       Serial.write(1);
       float_2_bytes( pid.ldr.luxToOutputVoltage( 5.0*analogRead( pid.getLdrPin() ) / 1023.0, true), false );
       float_2_bytes( 100.0*pid.getU()/255.0 , false );
@@ -621,7 +685,7 @@ ISR(TIMER1_COMPA_vect)
 //******************** HUB FUNCTIONS *********************
 bool hub()
 {   
-  /*int temp = Serial.read();
+  int temp = Serial.read();
   if(temp != '+'){
     return false;
   }
@@ -639,8 +703,7 @@ bool hub()
       bool state[number_of_addresses-1] = {true};
       for(int a=0; a<number_of_addresses-1; a++)
       {
-        Serial.write("+");
-        Serial.write("o");
+        Serial.write("+o");
         Serial.write(a+1);
         Serial.write(state[a]);
         Serial.write('*');
@@ -649,48 +712,72 @@ bool hub()
       float lower_bound_occupied[number_of_addresses-1] = {3.39};
       for(int a=0; a<number_of_addresses-1; a++)
       {
-        Serial.write("+");
-        Serial.write("O");
+        Serial.write("+O");
         Serial.write(a+1);
-        float_2_bytes(lower_bound_occupied[a]);
+        float_2_bytes(lower_bound_occupied[a], false);
       }
   
       float lower_bound_unoccupied[number_of_addresses-1] = {1.57};
       for(int a=0; a<number_of_addresses-1; a++)
       {
-        Serial.write("+");
-        Serial.write("U");
+        Serial.write("+U");
         Serial.write(a+1);
-        float_2_bytes(lower_bound_unoccupied[a]);
+        float_2_bytes(lower_bound_unoccupied[a], false);
       }
   
       float costs[number_of_addresses-1] = {1.0};
       for(int a=0; a<number_of_addresses-1; a++)
       {
-        Serial.write("+");
-        Serial.write("c");
+        Serial.write("+c");
         Serial.write(a+1);
-        float_2_bytes(costs[a]);
+        float_2_bytes(costs[a], false);
       }
   
       return true;
   } else if( welcome[0] == 'g') {
-      byte addr_to_send = atoi(welcome[2]);
+      byte addr_to_send = (char)welcome[2]-48;
       switch(welcome[1]) {
         case 'l':{ //Get current illuminance at desk <welcome[2]>
           if(addr_to_send == my_address) {
-            Serial.write("+");
-            Serial.write('I');
+            Serial.write("+I");
             Serial.write(welcome[2]);
-            float_2_bytes(pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true));
+            float_2_bytes(pid.ldr.luxToOutputVoltage( pid.ldr.getOutputVoltage(), true), false);
           } else { //If the message is not directed to me I send it via canbus
             msg_to_send = hub_get_current_lux;
-            writeMsg(addr_to_send, hub_get_current_lux, my_address);
+            writeMsg(addr_to_send, msg_to_send, my_address);
+          }
+        }break;
+        case 'd':{
+          if(addr_to_send == my_address) {
+            Serial.write("+d");
+            Serial.write(welcome[2]);
+            float_2_bytes(finalDimming, false);
+          } else { //If the message is not directed to me I send it via canbus
+            msg_to_send = hub_get_current_dimming;
+            writeMsg(addr_to_send, msg_to_send, my_address);
           }
         }break;
         default:{
           
         }break;
+      }
+  } else if(welcome[0] == 'o') {
+      byte addr_to_send = (char)welcome[1]-48;
+      if(addr_to_send == my_address) {
+        if(occupancy != (char)welcome[2]-48) { //Only if it's different I need to do another consensus
+          occupancy = (char)welcome[2]-48;
+          prev_state = my_state;
+          my_state = ready_consensus;
+          lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
+          consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost);
+          LOOP = false;
+          SIMULATOR = false;
+          msg_to_send = start_consensus;
+          writeMsg(0, msg_to_send, my_address);
+        }
+      } else {
+          msg_to_send = hub_set_occupancy;
+          writeMsgWithFloat(addr_to_send, msg_to_send, my_address, (float)welcome[2]);
       }
   } else {
       Serial.write("+");
@@ -698,7 +785,7 @@ bool hub()
       Serial.write(welcome[1]);
       Serial.write(welcome[2]);
       Serial.write(welcome[3]);
-  } */
+  } 
   return false;
 }
 
@@ -823,4 +910,21 @@ float bytes_2_float_2decimals(byte * myBytes){
   welit = integer + decimal_int/100.0;
   
   return welit;
+}
+
+//Return -1 if askedLux < offset
+//Return 1 if askedLux > max
+//Return 0 if no problems
+byte checkBoundsOnAskedLux(float askedLux) {
+  if(askedLux < my_offset) {
+    return -1;
+  }
+  float maxLux = my_offset;
+  for(byte i=0; i<number_of_addresses-1; i++) {
+    maxLux += 255*my_gains_vect[i];
+  }
+  if(askedLux > maxLux) {
+    return 1;
+  }
+  return 0;
 }

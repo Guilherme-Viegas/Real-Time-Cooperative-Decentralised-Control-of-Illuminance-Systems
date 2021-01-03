@@ -6,7 +6,10 @@
 #include "util.h"
 
 #define optimization_rho 0.07 //Value teacher used, but we may need to adjust
-#define max_iterations 5
+#define max_iterations 20
+#define lower_actuator_bound 0.0 // Lower and Upper dimming values [0, 100] in our case
+#define upper_actuator_bound 100.0
+#define tolerance 0.001
 
 class Consensus {
     int current_num_of_iterations = 0;
@@ -14,8 +17,6 @@ class Consensus {
     float local_offset = -1;
     float local_gains[3] = {0};
     float local_cost = -1;
-    float lower_actuator_bound = 0; // Lower and Upper dimming values [0, 100] in our case
-    float upper_actuator_bound = 100;
 
     float dimmings[3][3] = {{0}};
     float avg_dimming[3] = {0};
@@ -38,7 +39,7 @@ class Consensus {
 
     void updateDimmings( byte my_address, int number_of_addresses, byte nodes_addresses[4], float tmpDimmings[3][3] );
     void incrementIterations();
-    float getMyDimming(byte my_address, int number_of_addresses, byte nodes_addresses[4]);
+    float getFinalDimming(byte my_address, int number_of_addresses, byte nodes_addresses[4]);
 };
 
 #endif
