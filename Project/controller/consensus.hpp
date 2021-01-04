@@ -21,25 +21,29 @@ class Consensus {
     float dimmings[3][3] = {{0}};
     float avg_dimming[3] = {0};
     float lagrange_multipliers[3] = {0};
+    byte my_address = -1;
+    int number_of_addresses = -1;
+    byte nodes_addresses[4] = {0};
+    int number_of_nodes = -1;
 
   public:
     Consensus();
     ~Consensus();
-    void Init(float _lower_L_bound, float _local_offset, float _local_gains[3], float _local_cost); //Constructor
-    void computeValueToSend( byte my_address, int number_of_addresses, byte nodes_addresses[4]);
-    float *computeGlobalMinimum( byte my_address, int number_of_nodes, byte nodes_addresses[4]);
-    bool FeasibilityCheck(float dimming_to_check[3], byte my_address, int number_of_nodes);
-    float *computeBoundarySolutions( byte my_address, int number_of_nodes, byte nodes_addresses[4]);
-    void updateLagrandeMultipliers( byte my_address, int number_of_addresses, byte nodes_addresses[4] );
-    void updateAverage(int number_of_addresses);
-    float computeCost(float vector_dimming[3], int number_of_nodes, byte my_index);
+    void Init(float _lower_L_bound, float _local_offset, float _local_gains[3], float _local_cost, byte _my_address, int _number_of_addresses, byte _nodes_addresses[4]); //Constructor
+    void computeValueToSend( );
+    float *computeGlobalMinimum( );
+    bool FeasibilityCheck(float dimming_to_check[3]);
+    float *computeBoundarySolutions();
+    void updateLagrandeMultipliers(  );
+    void updateAverage();
+    float computeCost(float vector_dimming[3], byte my_index);
 
-    float *getDimmings( byte my_address, int number_of_addresses, byte nodes_addresses[4]);
+    float *getDimmings();
     int getCurrentIteration();
 
-    void updateDimmings( byte my_address, int number_of_addresses, byte nodes_addresses[4], float tmpDimmings[3][3] );
+    void updateDimmings( float tmpDimmings[3][3] );
     void incrementIterations();
-    float getFinalDimming(byte my_address, int number_of_addresses, byte nodes_addresses[4]);
+    float getFinalDimming();
 };
 
 #endif

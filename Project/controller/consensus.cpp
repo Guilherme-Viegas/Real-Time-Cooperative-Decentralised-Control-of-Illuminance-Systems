@@ -6,11 +6,14 @@ Consensus::~Consensus() {
   
 }
 
-void Consensus::Init(float _lower_L_bound, float _local_offset, float _local_gains[3], float _local_cost) {
+void Consensus::Init(float _lower_L_bound, float _local_offset, float _local_gains[3], float _local_cost, byte _my_address, int _number_of_addresses, byte _nodes_addresses[4]) {
   current_num_of_iterations = 0;
   lower_L_bound = _lower_L_bound;
   local_offset = _local_offset;
   local_cost = _local_cost;
+  my_address = _my_address;
+  number_of_addresses = _number_of_addresses;
+  number_of_nodes = _number_of_addresses-1;
   for(byte i = 0; i < 3; i++) {
     local_gains[i] = (_local_gains[i] * 255.0) / 100.0;
     avg_dimming[i] = 0;
@@ -19,14 +22,19 @@ void Consensus::Init(float _lower_L_bound, float _local_offset, float _local_gai
         dimmings[i][j] = 0;
     }
   }
+  for(byte i=0; i<4;i++) {
+    nodes_addresses[i] = _nodes_addresses[i];
+  }
+  
 }
 
 //Executes the needed subproblems (the global minimum, or all 6 if needed) and returns the proposed dimming vector for this node to be sent to other nodes
-void Consensus::computeValueToSend(byte my_address, int number_of_addresses, byte nodes_addresses[4]) {
-  float *proposedDimmingVector = computeGlobalMinimum( my_address, number_of_addresses-1, nodes_addresses);
+void Consensus::computeValueToSend() {
+  float *proposedDimmingVector = computeGlobalMinimum();
 
-  if(!FeasibilityCheck(proposedDimmingVector, my_address, number_of_addresses-1)) {
-    proposedDimmingVector = computeBoundarySolutions(my_address, number_of_addresses-1, nodes_addresses);
+  if(!FeasibilityCheck(proposedDimmingVector)) {
+    free(proposedDimmingVector);
+    proposedDimmingVector = computeBoundarySolutions();
   }
 
   for(byte i=0; i < number_of_addresses-1; i++) {
@@ -37,7 +45,7 @@ void Consensus::computeValueToSend(byte my_address, int number_of_addresses, byt
 /*
 * Check if generated solutions is within node constraints
 */
-bool Consensus::FeasibilityCheck(float dimming_to_check[3], byte my_address, int number_of_nodes) {
+bool Consensus::FeasibilityCheck(float dimming_to_check[3]) {
   float total_lux = 0;
 
   for(byte i = 0; i < number_of_nodes; i++) {
@@ -56,7 +64,7 @@ bool Consensus::FeasibilityCheck(float dimming_to_check[3], byte my_address, int
   return true;
 }
 
-float *Consensus::computeGlobalMinimum(byte my_address, int number_of_nodes, byte nodes_addresses[4]) {
+float *Consensus::computeGlobalMinimum() {
   float *proposedDimmingVector = (float*)calloc(number_of_nodes, sizeof(float));
   for(byte i = 0; i < number_of_nodes; i++) {
     if(i == (retrieve_index(nodes_addresses, number_of_nodes+1, my_address) - 1) ) {
@@ -68,7 +76,7 @@ float *Consensus::computeGlobalMinimum(byte my_address, int number_of_nodes, byt
   return proposedDimmingVector;
 }
 
-float *Consensus::computeBoundarySolutions(byte my_address, int number_of_nodes, byte nodes_addresses[4]) {
+float *Consensus::computeBoundarySolutions() {
   float dimming_vector_ILB[3] = {0};
   float dimming_vector_DLB[3] = {0};
   float dimming_vector_DUB[3] = {0};
@@ -112,24 +120,24 @@ float *Consensus::computeBoundarySolutions(byte my_address, int number_of_nodes,
   float bestSolution = 10000; //Solutions can't be bigger than 100% of dimming, so 101 is a nice "infinity" value
   float *bestVector;
 
-  if( FeasibilityCheck(dimming_vector_ILB, my_address, number_of_nodes) and (computeCost(dimming_vector_ILB, number_of_nodes, my_index) < bestSolution) ) {
-    bestSolution = computeCost(dimming_vector_ILB, number_of_nodes, my_index);
+  if( FeasibilityCheck(dimming_vector_ILB) and (computeCost(dimming_vector_ILB, my_index) < bestSolution) ) {
+    bestSolution = computeCost(dimming_vector_ILB, my_index);
     bestVector = dimming_vector_ILB;
   }
-  if( FeasibilityCheck(dimming_vector_DLB, my_address, number_of_nodes) and (computeCost(dimming_vector_DLB, number_of_nodes, my_index) < bestSolution) ) {
-    bestSolution = computeCost(dimming_vector_DLB, number_of_nodes, my_index);
+  if( FeasibilityCheck(dimming_vector_DLB) and (computeCost(dimming_vector_DLB, my_index) < bestSolution) ) {
+    bestSolution = computeCost(dimming_vector_DLB, my_index);
     bestVector = dimming_vector_DLB;
   }
-  if( FeasibilityCheck(dimming_vector_DUB, my_address, number_of_nodes) and (computeCost(dimming_vector_DUB, number_of_nodes, my_index) < bestSolution) ) {
-    bestSolution = computeCost(dimming_vector_DUB, number_of_nodes, my_index);
+  if( FeasibilityCheck(dimming_vector_DUB) and (computeCost(dimming_vector_DUB, my_index) < bestSolution) ) {
+    bestSolution = computeCost(dimming_vector_DUB, my_index);
     bestVector = dimming_vector_DUB;
   }
-  if( FeasibilityCheck(dimming_vector_ILBintersectDLB, my_address, number_of_nodes) and (computeCost(dimming_vector_ILBintersectDLB, number_of_nodes, my_index) < bestSolution) ) {
-    bestSolution = computeCost(dimming_vector_ILBintersectDLB, number_of_nodes, my_index);
+  if( FeasibilityCheck(dimming_vector_ILBintersectDLB) and (computeCost(dimming_vector_ILBintersectDLB, my_index) < bestSolution) ) {
+    bestSolution = computeCost(dimming_vector_ILBintersectDLB, my_index);
     bestVector = dimming_vector_ILBintersectDLB;
   }
-  if( FeasibilityCheck(dimming_vector_ILBintersectDUB, my_address, number_of_nodes) and (computeCost(dimming_vector_ILBintersectDUB, number_of_nodes, my_index) < bestSolution) ) {
-    bestSolution = computeCost(dimming_vector_ILBintersectDUB, number_of_nodes, my_index);
+  if( FeasibilityCheck(dimming_vector_ILBintersectDUB) and (computeCost(dimming_vector_ILBintersectDUB, my_index) < bestSolution) ) {
+    bestSolution = computeCost(dimming_vector_ILBintersectDUB, my_index);
     bestVector = dimming_vector_ILBintersectDUB;
   }
   //TODO: Check if we need to watchout for a null solution ( none of the 5 was feasible)
@@ -139,7 +147,7 @@ float *Consensus::computeBoundarySolutions(byte my_address, int number_of_nodes,
   return bestVector;
 }
 
-float Consensus::computeCost(float vector_dimming[3], int number_of_nodes, byte my_index) {
+float Consensus::computeCost(float vector_dimming[3], byte my_index) {
   float cost = 0;
   float vector_for_norm[3] = {0};
   for(byte i=0; i<number_of_nodes; i++) {
@@ -158,7 +166,7 @@ float Consensus::computeCost(float vector_dimming[3], int number_of_nodes, byte 
 
 
 //************ UPDATE LAGRANGE MULTIPLIERS *******
-void Consensus::updateLagrandeMultipliers(byte my_address, int number_of_addresses, byte nodes_addresses[4]) {
+void Consensus::updateLagrandeMultipliers() {
   float *proposed_dimmings_vals = dimmings[(retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)];
   for(byte i = 0; i < number_of_addresses-1; i++) {
     lagrange_multipliers[i] += optimization_rho * ( proposed_dimmings_vals[i] - avg_dimming[i] );
@@ -166,7 +174,7 @@ void Consensus::updateLagrandeMultipliers(byte my_address, int number_of_address
 }
 
 //******** UPDATE AVERAGE VECTOR ************
-void Consensus::updateAverage(int number_of_addresses) {
+void Consensus::updateAverage() {
   for(byte i=0; i<number_of_addresses-1; i++) {
     avg_dimming[i] = 0;
     for(byte j=0; j<number_of_addresses-1; j++){
@@ -177,7 +185,7 @@ void Consensus::updateAverage(int number_of_addresses) {
 }
 
 //*********** GETTERS AND SETTERS *************
-float *Consensus::getDimmings( byte my_address, int number_of_addresses, byte nodes_addresses[4]) {
+float *Consensus::getDimmings( ) {
   return dimmings[(retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)];
 }
 
@@ -185,11 +193,11 @@ int Consensus::getCurrentIteration() {
   return current_num_of_iterations;
 }
 
-float Consensus::getFinalDimming(byte my_address, int number_of_addresses, byte nodes_addresses[4]) {
+float Consensus::getFinalDimming() {
   return avg_dimming[(retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)];
 }
 
-void Consensus::updateDimmings( byte my_address, int number_of_addresses, byte nodes_addresses[4], float tmpDimmings[3][3] ) {
+void Consensus::updateDimmings( float tmpDimmings[3][3] ) {
   for(byte i=0; i<number_of_addresses-1; i++) {
     if(i != (retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)) {
       for(byte j=0; j<number_of_addresses-1; j++) {
