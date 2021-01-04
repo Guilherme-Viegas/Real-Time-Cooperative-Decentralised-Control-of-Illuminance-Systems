@@ -350,7 +350,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                     }
                     else
                     {   
-                        std::string client_msg = std::to_string(address)+std::string(1,type);
+                        std::string client_msg = std::string(1,type) + std::to_string(address);
                         // command already in stack
                         if (std::find(t_database->t_clients_command.begin(), t_database->t_clients_command.end(), client_msg) != t_database->t_clients_command.end())
                         {
@@ -359,7 +359,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                         else
                         {
                             valid_response = 0;
-                            std::string to_arduino = '+' + std::to_string(address) + std::string(1, type) + "**"; 
+                            std::string to_arduino = '+' + client_msg + "**"; 
                             t_serial->write_command(to_arduino);
                             t_database->t_clients_address.push_back(t_client_address);                                                                     
                             t_database->t_clients_command.push_back(client_msg);                                                                              // appends the new command
@@ -389,7 +389,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                 {
                     valid_response = 0; // arduino message
                     int int_value = round(value * 10);
-                    std::string client_msg = std::to_string(address) + std::string(1, order) + std::to_string(int_value);   // in this case the var order is the type once it is a set command
+                    std::string client_msg = std::string(1, order) + std::to_string(address) + std::to_string(int_value);   // in this case the var order is the type once it is a set command
                     std::cout << t_client_address << "\t" << client_msg << std::endl;
 
                     // command already in stack
@@ -401,7 +401,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                     {
                         u_int8_t val[2]{};                                                                                                                // 2 bytes with float value
                         t_database->float_2_bytes(value, val);                                                                                            // converts the float to 12 decimal bit and 4 floats
-                        std::string to_arduino = '+' + std::to_string(address) + std::string(1, order) + std::string(1, (char)val[1]) + std::string(1, (char)val[0]); // msg to be sent
+                        std::string to_arduino = '+' + std::string(1, order) + std::to_string(address) + std::string(1, (char)val[1]) + std::string(1, (char)val[0]); // msg to be sent
                         t_serial->write_command(to_arduino);                                                                                              // sent message
                         t_database->t_clients_address.push_back(t_client_address);                                                                        // appends the clients address
                         t_database->t_clients_command.push_back(client_msg);                                                                              // appends the new command
