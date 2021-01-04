@@ -7,13 +7,13 @@
 
 #define INIT_COMMAND "+RPiS"
 #define TIME_TO_SHUT_DOWN 0
-#define NUM_THREADS 2
+#define NUM_THREADS 0
 
 // global variable to control whether the server runs or not
 boost::asio::io_context io;
 
 // times to close the program
-void start_timer(boost::asio::steady_timer *timer)
+void start_timer(boost::asio::steady_timer* timer)
 {
     if (!TIME_TO_SHUT_DOWN)
     {
@@ -43,6 +43,7 @@ int main()
     if( num_lamps <= 0 )
     {
         std::cout << "Early exit with" << (int)num_lamps << " lamps" << std::endl;
+        return 0;
     }
     office the_office{num_lamps};
 
@@ -51,9 +52,6 @@ int main()
 
     the_serial.write_command(INIT_COMMAND);
     the_serial.read_until_asynchronous(&the_office, '+');
-
-    // while (!stop_server)
-    //threads_service(&io); //https://www.boost.org/doc/libs/1_66_0/doc/html/boost_asio/reference/io_service.html
 
     std::thread threads[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++)
@@ -65,6 +63,8 @@ int main()
     {
         threads[i].join();
     }
+
+    if(NUM_THREADS==0){ io.run(); }
 
 
     return 0;

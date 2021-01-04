@@ -47,11 +47,11 @@ void udp_server::handle_receive(const boost::system::error_code &error, size_t b
                                        std::cout << response << std::endl;
                                    });
         }
-        else if (order == 'b')
+        else if (order == 'b')  // get last minute buffer of variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
         {
             send_last_minute(header, type, address);
         }
-        else if (order == 's')
+        else if (order == 's')  // stop stream of real-time variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
         {
             set_stream(type, address);
         }
@@ -117,12 +117,24 @@ tcp_server::tcp_server(boost::asio::io_service *io, unsigned short port, office 
     start_accept();
 }
 
+tcp_server::~tcp_server()
+{   
+    t_acceptor.close();
+
+    // delete all clients backwards
+    std::vector<int>::size_type sz = connections.size();
+    for (unsigned int i = 0; i < sz ; i++)
+    {   
+        delete connections.at(i);
+    }
+}
 /*
  * Creates a socket and initiates an asynchronous accept operation to wait for a new connection.
  */
 void tcp_server::start_accept()
 {
-    new_connection = new tcp_connection{t_io, t_database, t_serial}; // append in list later
+    new_connection = new tcp_connection{t_io, t_database, t_serial};
+    connections.push_back(new_connection);  // save clients in the list
 
     t_acceptor.async_accept(new_connection->socket(),
                             [this](const boost::system::error_code &err) {
@@ -134,12 +146,11 @@ void tcp_server::start_accept()
                                 }
                                 else
                                 {
-                                    delete new_connection;
+                                    // delete new_connection;
                                 }
                                 start_accept();
                             } //end async_accept lambda arg
     );                        //end async_accept cal
-
 }
 
 /*
@@ -165,7 +176,7 @@ void tcp_connection::start_receive()
             else
             {
                 std::cout << "TCP client has left. " << this << std::endl;
-                delete this;
+                //delete this;
             }
         });
 }
@@ -192,17 +203,17 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
         std::string response = std::string(1, type) + '\t' + std::to_string(address) + '\t';
         int valid_response = 1; // 1: True , -1 : Fale, 0: do nothing
 
-        if( command.compare("r") == 0 )
-        {   
+        if (command.compare("r") == 0)
+        {
             t_serial->write_command("+rrrr");
-            t_database->t_clients_address.push_back(t_client_address);                                                                        // appends the clients address
-            t_database->t_clients_command.push_back("0A0");                                                                              // appends the new command
-            t_database->t_acknowledge.push_back(0);    
-            valid_response = 0;  
+            t_database->t_clients_address.push_back(t_client_address); // appends the clients address
+            t_database->t_clients_command.push_back("0A0");            // appends the new command --- to be equal as the order instructions
+            t_database->t_acknowledge.push_back(0);
+            valid_response = 0;
         }
 
         else if (0 > address || address > t_database->get_num_lamps())
-        {   
+        {
             valid_response = -1;
         }
         else
@@ -305,18 +316,6 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                     }
                     break;
                 }
-                case 'r': // get current illuminance control reference at desk <i>
-                {
-                    if (address == 0)
-                    {
-                        valid_response = -1;
-                    }
-                    else
-                    {
-                        response = "MISTÉRIO : get current illuminance control reference at desk <i>";
-                    }
-                    break;
-                }
                 case 't': // get elapsed time since last restart
                 {
                     if (address == 0)
@@ -341,6 +340,8 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                     }
                     break;
                 }
+                // direct to arduino
+                case 'r': // get current illuminance control reference at desk <i>
                 case 'x': // get current external illuminace at desk <i>
                 {
                     if (address == 0)
@@ -348,8 +349,22 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                         valid_response = -1;
                     }
                     else
-                    {
-                        response = "MISTÉRIO : get current external illuminace at desk <i>";
+                    {   
+                        std::string client_msg = std::to_string(address)+std::string(1,type);
+                        // command already in stack
+                        if (std::find(t_database->t_clients_command.begin(), t_database->t_clients_command.end(), client_msg) != t_database->t_clients_command.end())
+                        {
+                            send_acknowledgement(false);
+                        }
+                        else
+                        {
+                            valid_response = 0;
+                            std::string to_arduino = '+' + std::to_string(address) + std::string(1, type) + "**"; 
+                            t_serial->write_command(to_arduino);
+                            t_database->t_clients_address.push_back(t_client_address);                                                                     
+                            t_database->t_clients_command.push_back(client_msg);                                                                              // appends the new command
+                            t_database->t_acknowledge.push_back(0);                                                                                           
+                        }
                     }
                     break;
                 }
@@ -373,7 +388,8 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                 else
                 {
                     valid_response = 0; // arduino message
-                    std::string client_msg = std::to_string(address) + std::string(1, order) + std::to_string(round(value * 10));
+                    int int_value = round(value * 10);
+                    std::string client_msg = std::to_string(address) + std::string(1, order) + std::to_string(int_value);   // in this case the var order is the type once it is a set command
                     std::cout << t_client_address << "\t" << client_msg << std::endl;
 
                     // command already in stack
@@ -385,7 +401,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                     {
                         u_int8_t val[2]{};                                                                                                                // 2 bytes with float value
                         t_database->float_2_bytes(value, val);                                                                                            // converts the float to 12 decimal bit and 4 floats
-                        std::string to_arduino = '+' + std::to_string(address) + std::string(1, order) + std::string(1, val[1]) + std::string(1, val[0]); // msg to be sent
+                        std::string to_arduino = '+' + std::to_string(address) + std::string(1, order) + std::string(1, (char)val[1]) + std::string(1, (char)val[0]); // msg to be sent
                         t_serial->write_command(to_arduino);                                                                                              // sent message
                         t_database->t_clients_address.push_back(t_client_address);                                                                        // appends the clients address
                         t_database->t_clients_command.push_back(client_msg);                                                                              // appends the new command
@@ -406,14 +422,10 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
         {
             response = "The number of Total desks connected in the network is: " + std::to_string(t_database->get_num_lamps());
         }
-        
+
         if (valid_response != 0) // there is a response to send
         {
-            response += '\n';
-            t_socket.async_send(boost::asio::buffer(response.c_str(), response.size()),
-                                [response](const boost::system::error_code &t_ec, std::size_t len) {
-                                    std::cout << response << std::endl;
-                                });
+            send_string(response);
         }
     }
     start_receive();
@@ -433,12 +445,25 @@ void tcp_connection::send_acknowledgement(bool ack_err)
 }
 
 /*
+ * Sends string
+ */
+void tcp_connection::send_string(std::string s)
+{   
+    s += '\n';
+    t_socket.async_send(boost::asio::buffer(s.c_str(), s.size()),
+                                [s](const boost::system::error_code &t_ec, std::size_t len) {
+                                    std::cout << s << std::endl;
+                                });
+}
+
+/*
  * Checks asynchronous if the database as a new information valid or not
  */
 void tcp_connection::start_timer()
 {
-    t_timer.expires_after(boost::asio::chrono::milliseconds{2000});
+    t_timer.expires_after(boost::asio::chrono::milliseconds{1500});     // it takes in avergare 1s and 500ms
     t_timer.async_wait([this](const boost::system::error_code &t_ec) {
+        
         bool last_call = false;
         if (t_ec || !t_socket.is_open())
         {
@@ -446,8 +471,9 @@ void tcp_connection::start_timer()
         }
 
         std::cout << "\nt_client_address: " << t_client_address << std::endl;
-        // delete index from backwards when the client is done
-        for (int clt = t_database->t_clients_address.size() - 1; clt >= 0; clt--)
+        // delete index from the last when the client is done
+        std::vector<int>::size_type sz = t_database->t_clients_address.size();
+        for (int clt = sz - 1; clt >= 0; clt--)
         {
             std::cout << "\tclient_comand: " << t_database->t_clients_address.at(clt) << std::endl;
             if (!t_database->t_clients_address.at(clt).compare(t_client_address)) // client has a pendent process
@@ -459,7 +485,21 @@ void tcp_connection::start_timer()
                     continue;
                 }
                 // 'ack' to be sent
-                if (!last_call) { send_acknowledgement(t_database->t_acknowledge.at(clt) == 1 ? true : false); }
+                if (!last_call)
+                {   
+                    if( (char)t_database->t_clients_command.at(clt)[1] == 'x' || (char)t_database->t_clients_command.at(clt)[1] == 'r' )   // get command
+                    {   
+                        std::string response = std::string(1, (char)t_database->t_clients_command.at(clt)[1] ) + '\t' +
+                                                std::string(1, (char)t_database->t_clients_command.at(clt)[0] ) + '\t' +
+                                                std::to_string ( t_database->t_acknowledge.at(clt) / 10.0 );
+                        send_string(response);
+                    }
+                                                
+                    else    // set commands wainting for acknoledge
+                    {   
+                        send_acknowledgement(t_database->t_acknowledge.at(clt) == 1 ? true : false);
+                    }
+                }
                 // erase commands
                 t_database->t_acknowledge.erase(t_database->t_acknowledge.begin() + clt);
                 t_database->t_clients_command.erase(t_database->t_clients_command.begin() + clt); // if the clients wants to know the command, print this before send teh acknowledge

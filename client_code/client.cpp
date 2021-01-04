@@ -60,7 +60,7 @@ void print_commands()
     std::cout << "------------------------------------------------------------------------------------------------------" << std::endl;
 }
 
-void udp_start_read_server(ip::udp::socket *client)
+void udp_start_read_server(ip::udp::socket* client)
 {
     client->async_receive(buffer(udp_message, BUFFER_SIZE),
                           [=](const boost::system::error_code &err, std::size_t bytes_transferred) {
@@ -84,7 +84,7 @@ void udp_start_read_server(ip::udp::socket *client)
                           });
 }
 
-void tcp_start_read_server(ip::tcp::socket *client)
+void tcp_start_read_server(ip::tcp::socket* client)
 {
     client->async_read_some(buffer(tcp_message, BUFFER_SIZE),
                             [=](const boost::system::error_code &err, std::size_t bytes_transferred) {
@@ -118,7 +118,7 @@ void print_invalid_command()
     }
 }
 
-void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::socket *tcp_client, ip::udp::socket *udp_client)
+void start_read_input(boost::asio::posix::stream_descriptor* stm_desc, ip::tcp::socket* tcp_client, ip::udp::socket* udp_client)
 {
     async_read_until(*stm_desc, stm_buff, '\n',
                      [=](const boost::system::error_code &err, std::size_t bytes_transferred) {
@@ -154,7 +154,6 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                                  if (!file.is_open())
                                  {
                                      file.open(str_input.substr(0, str_input.size()).append(".txt"), std::ofstream::out);
-                                     std::cout << "ola: " << str_input.substr(0, str_input.size()-1) << std::endl;
                                  }
                              }
                              // find the word 'close'
@@ -315,7 +314,7 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                      });
 }
 
-void find_TCP_server(ip::tcp::socket *tcp_socket, ip::tcp::endpoint *tcp_endpoint)
+void find_TCP_server(ip::tcp::socket* tcp_socket, ip::tcp::endpoint* tcp_endpoint)
 {
     tcp_socket->async_connect(*tcp_endpoint,
                               [=](const boost::system::error_code &error) {
@@ -333,7 +332,7 @@ void find_TCP_server(ip::tcp::socket *tcp_socket, ip::tcp::endpoint *tcp_endpoin
                               });
 }
 
-void start_UDP_connection(ip::udp::socket *udp_socket, ip::udp::endpoint *udp_endpoint)
+void start_UDP_connection(ip::udp::socket* udp_socket, ip::udp::endpoint* udp_endpoint)
 {
     udp_socket->async_connect(*udp_endpoint,
                               [=](const boost::system::error_code &error) {

@@ -33,7 +33,7 @@ public: // this things are public
     ~circular_array()
     {
         if (DEBUG)
-            std::cout << "It was deleted a circular array with size: " << t_array_size << std::endl;
+            std::cout << "It was deleted a circular array" << std::endl;
     };
 
     bool is_empty() const { return t_is_empty; }

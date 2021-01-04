@@ -37,18 +37,18 @@ private:    // this things are private
     bool t_coms_available = true;
 
     // functions
-    void read_async_command( office *the_office );
+    void read_async_command( office* the_office );
 
     
 public:     // this things are public
 
 
-    communications( boost::asio::io_context *io );// constructor
+    communications( boost::asio::io_context* io );// constructor
     ~communications();  // destructor
 
     uint8_t has_hub();
     void write_command( std::string command );
-    void read_until_asynchronous( office *the_office, char delimiter );
+    void read_until_asynchronous( office* the_office, char delimiter );
     void set_coms_not_available(){ t_coms_available = false; }
 };
 

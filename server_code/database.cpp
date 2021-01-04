@@ -29,35 +29,38 @@ void office::updates_database( char command[], uint8_t size )
     float value = 0.0;
     //static bool first = true;
 
-    char order = command[0];
-    int address = (int)(uint8_t)command[1];
-    bool set_command = 0;    // commands that are set by the client
+    char type = command[0];
+    int address = (int)(uint8_t)command[1];    // make sure it converts well
+    int set_command = 0;    // commands that are set by the client
+    //bool error = (int)(uint8_t)( 0x0F & command[3]) == 15;
+    bool error = (0x8 & command[2]);
 
-    switch (order)
+    switch (type)
     {
-    case 'A':
+    case 'A':   // restart
     {   
         set_command = -1;
         if(command[2] == ':' && command[3] == ')')
-        {
-            restart_it_all( (int)(u_int8_t)command[1] );
+        {   
+            restart_it_all( address );  // constains the number of lamps
             address = 0;
             value = 0;
             set_command = 1;
         }
         break;
     }
-    case 't':
+    case 't':   //  get elapsed time since last restart
     {   
-        t_time_since_restart = (float)(address<<12) + bytes_2_float(command[2], command[3]);
-        if(DEBUG) std::cout << "Time since last restart: " << t_time_since_restart << " segundos.\n";
+        t_time_since_last_restart = (float)(address<<12) + bytes_2_float(command[2], command[3]);
+        if(DEBUG) std::cout << "Time since last restart: " << t_time_since_last_restart << " segundos.\n";
         break;
     }
-    case 'o':
+    case 'o':   // set current occupancy state at desk <i> - send this before case 'O' during the arduino setup because it will use one of its initial values as checkpoint
     {   
         value = bytes_2_float(command[2], command[3]);
-        if( value == 0.15 )
-        {
+        if( error )//(int)value*100
+        {       
+            value = value - 0x80;   // subtracting the error
             set_command = -1;
             break;
         }
@@ -66,21 +69,22 @@ void office::updates_database( char command[], uint8_t size )
             set_command = 1;
         }
         // Updates the value in the dataset
-        t_lamps_array[address-1]->set_state(command[2]);
+        t_lamps_array[address-1]->set_state((bool)(int)value);
 
         if(DEBUG) std::cout << "Desk[" << address << "]\tThe state was step to: " << ( t_lamps_array[address-1]->get_state() ? "occupied" : "unoccupied") << "\n";
         break;
     }
-    case 'O':
+    case 'O':   // set lower bound on illuminance for Occupied state at desk <i>
     {
         value = bytes_2_float(command[2], command[3]);
-        if( value == 0.15 )
-        {
+        if( error )
+        {   
+            value = value - 0x80;   // subtracting the error
             set_command = -1;
             break;
         }
         else if( t_lamps_array[address-1]->get_occupied_value() != -1.0 )
-        {
+        {   
             set_command = 1;
         }
         // Updates the value in the dataset
@@ -89,11 +93,12 @@ void office::updates_database( char command[], uint8_t size )
         if(DEBUG) std::cout << "Desk[" << address << "]\tThe occupied value is " << t_lamps_array[address-1]->get_occupied_value() << "\n";
         break;
     }
-    case 'U':
+    case 'U':   // set lower bound on illuminance for Unoccupied state at desk <i>
     {
         value = bytes_2_float(command[2], command[3]);
-        if( value == 0.15 )
+        if( error )
         {
+            value = value - 0x80;   // subtracting the error
             set_command = -1;
             break;
         }
@@ -107,7 +112,7 @@ void office::updates_database( char command[], uint8_t size )
         if(DEBUG) std::cout << "Desk[" << address << "]\tThe unoccupied value is " << t_lamps_array[address-1]->get_unoccupied_value() << "\n";
         break;
     }
-    case 's':
+    case 's':   // stop stream of real-time variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
     {   
         set_command = false;
         float luminance = bytes_2_float(command[2], command[3]);
@@ -119,18 +124,19 @@ void office::updates_database( char command[], uint8_t size )
         t_lamps_array[address-1]->compute_performance_metrics_at_desk( luminance, duty_cicle );
 
         // updates time since last system restart when the information about the first one is recived
-        if( (address-1) == 0 ){ t_time_since_restart += SAMPLE_TIME_MILIS*std::pow(10,-3); }
+        if( (address-1) == 0 ){ t_time_since_last_restart += SAMPLE_TIME_MILIS*std::pow(10,-3); }
 
         // streams
         if(t_stream && ( t_stream_address == address ) ){ udp_stream( (t_stream_type == 'l') ? luminance : duty_cicle);  }
 
        break;
     }
-    case 'c':
+    case 'c': // set current energy cost at desk <x>
     {
         value = bytes_2_float(command[2], command[3]);
-        if( value == 0.15 )
+        if( error )
         {   
+            value = value - 0x80;   // subtracting the error
             set_command = -1;
             break;
         }
@@ -144,17 +150,40 @@ void office::updates_database( char command[], uint8_t size )
         if(DEBUG) std::cout << "Desk[" << address << "]\tThe cost value is " << t_lamps_array[address-1]->get_nominal_power() << "\n";
         break;
     }
+    case 'x':
+    case 'r':
+    {
+        set_command = 0; // speacial case
+        std::string client_msg = std::to_string(address) + std::string(1, type);
+        std::vector<int>::size_type sz = t_clients_address.size();
+        value = bytes_2_float(command[2], command[3]);
+
+        for(unsigned int clt = 0; clt < sz ; clt++)
+        {
+            if ( ! t_clients_command.at(clt).compare(client_msg) )   // return status
+            {   
+                std::cout << "Pop command value " << set_command << std::endl;
+                t_acknowledge.at(clt) = 10*value;
+            }
+        }
+        break;
+    }
     default:
         std::cout << "Default at switch " << address << std::endl;
         break;
     }
+
     if( set_command != 0 )   // happens when the arduino return same value that was set by the client 
-    {
-        std::string client_msg = std::to_string(address) + std::string(1, order) + std::to_string(round(value * 10));
-        for(unsigned int clt = 0; clt < t_clients_address.size() ; clt++)
+    {   
+        int int_value = value * 10;
+        std::string client_msg = std::to_string(address) + std::string(1, type) + std::to_string(int_value);
+
+        std::vector<int>::size_type sz = t_clients_address.size();
+        for(unsigned int clt = 0; clt < sz ; clt++)
         {
             if ( ! t_clients_command.at(clt).compare(client_msg) )   // return status
-            {
+            {   
+                std::cout << "Pop command ack/err " << set_command << std::endl;
                 t_acknowledge.at(clt) = set_command;
             }
         }
@@ -274,7 +303,7 @@ float office::get_accumulated_flicker_error()
  * Controls stream parameters
  * return whereas the stream has started 0, if it was stopped correctly 1 or not wrong command -1
  */
-int office::set_upd_stream( char type, int address, boost::asio::ip::udp::socket *socket, boost::asio::ip::udp::endpoint *endpoint)
+int office::set_upd_stream( char type, int address, boost::asio::ip::udp::socket* socket, boost::asio::ip::udp::endpoint* endpoint)
 {   
     std::lock_guard<std::mutex> lock(t_mutex);
 
@@ -307,7 +336,7 @@ int office::set_upd_stream( char type, int address, boost::asio::ip::udp::socket
     std::lock_guard<std::mutex> lock(t_mutex);
 
     std::string str_value =  std::to_string( value );
-    std::string str_time =  std::to_string( t_time_since_restart );
+    std::string str_time =  std::to_string( t_time_since_last_restart );
 
     std::string response =  std::string(1,'s') +  '\t' +  std::string(1,t_stream_type) + '\t'
                         + std::to_string(t_stream_address) + '\t' + str_value.erase(str_value.size()-5)
@@ -331,7 +360,7 @@ void office::restart_it_all( int lamps )
 {   
 
     // deletes previous nodes
-    for(int i = 0; i<t_time_since_restart; i++)
+    for(int i = 0; i<t_num_lamps; i++)
     {   
         delete t_lamps_array[i];
     }
@@ -339,15 +368,16 @@ void office::restart_it_all( int lamps )
 
 
     // clears office class (this)
-    t_time_since_restart = 0.0;
+    t_time_since_last_restart = 0.0;
     t_num_lamps = lamps; 
     t_stream = false;
     t_stream_type = ' ';
     t_stream_address = 0;
     
-    for (int clt = t_clients_address.size() - 1; clt >= 0; clt--)
+    std::vector<int>::size_type sz = t_clients_address.size();
+    for (int clt = sz - 1; clt >= 0; clt--)
     {
-        if( t_clients_address.at(clt).compare("0A0") ) // if message is to restart does not restart
+        if( t_clients_command.at(clt).compare("0A0") ) // if message is to restart does not restart
         {
             t_clients_address.erase( t_clients_address.begin() + clt );
             t_clients_command.erase( t_clients_command.begin() + clt );
@@ -376,7 +406,7 @@ lamp::lamp( int address ) : t_address( (uint8_t)address ) // stores personal add
 
 lamp::~lamp()
 {
-    if(DEBUG) std::cout << "Ups... seems that the lamp at address " << (int)t_address << " is not available anymore.\n";    // goodbye message
+    if(DEBUG) std::cout << "Ups... seems that one lamp is not available anymore.\n";    // goodbye message
 }
 
 /*

@@ -73,15 +73,15 @@ class office
 
 private:    // this things are private
 
-    float t_time_since_restart = 0.0;
+    float t_time_since_last_restart = 0.0;
     int t_num_lamps = -1; // TODO comando para dar update se houver um restart
 
     // streams
     bool t_stream = false;
     char t_stream_type = ' ';
     int t_stream_address = 0;
-    boost::asio::ip::udp::socket *t_socket;
-    boost::asio::ip::udp::endpoint *t_endpoint;
+    boost::asio::ip::udp::socket* t_socket;
+    boost::asio::ip::udp::endpoint* t_endpoint;
 
     std::mutex t_mutex;
 
@@ -103,7 +103,7 @@ public:     // this things are public
     office( uint8_t numLamps );
     ~office();
     
-    double get_elapesd_time_since_last_restart(){ return t_time_since_restart; }
+    double get_elapesd_time_since_last_restart(){ return t_time_since_last_restart; }
     void updates_database( char command[], uint8_t size );
     void float_2_bytes(float fnum, u_int8_t bytes[2]) const;
 
@@ -111,7 +111,7 @@ public:     // this things are public
     float get_instant_power();
     float get_accumulated_visibility_error();
     float get_accumulated_flicker_error();
-    int set_upd_stream( char type = ' ', int address = 0, boost::asio::ip::udp::socket *socket = NULL, boost::asio::ip::udp::endpoint *endpoint = NULL);
+    int set_upd_stream( char type = ' ', int address = 0, boost::asio::ip::udp::socket* socket = NULL, boost::asio::ip::udp::endpoint* endpoint = NULL);
     void udp_stream ( float );
     int get_num_lamps();
 

@@ -2,8 +2,8 @@
 
 
 
-// communications::communications( boost::asio::serial_port *s)
-communications::communications( boost::asio::io_context *io )
+// communications::communications( boost::asio::serial_port* s)
+communications::communications( boost::asio::io_context* io )
 {
     if(DEBUG) std::cout << "This is the initial message of the Serial communication :)\n"; // welcome message
 
@@ -26,7 +26,7 @@ communications::communications( boost::asio::io_context *io )
 communications::~communications()
 {   
     if(DEBUG) std::cout << "This is the final message of the Serial communication :(\n";
-    boost::asio::write( *t_serial, boost::asio::buffer("+RPiE"), t_ec );
+    boost::asio::write(* t_serial, boost::asio::buffer("+RPiE"), t_ec );
     t_serial->close();
 }
 
@@ -39,18 +39,18 @@ uint8_t communications::has_hub()
     // std::cout << "Waiting for the arduino's delay ...\n";
     // sleep(2);
     // https://stackoverflow.com/questions/39517133/write-some-vs-write-boost-asio - "Since you're only sending a little data, you don't save much time by returning before all the data's sent.(write_some)"
-    boost::asio::write( *t_serial, boost::asio::buffer("+RPiG"), t_ec );
+    boost::asio::write(* t_serial, boost::asio::buffer("+RPiG"), t_ec );
     
     char trash;
     do
     {
-        boost::asio::read( *t_serial, t_buf, t_ec );
+        boost::asio::read(* t_serial, t_buf, t_ec );
         trash = t_buf.sgetc();
         t_buf.consume(1);
     } while ( trash!='+' );
 
 
-    boost::asio::read( *t_serial, t_buf_command, t_ec );
+    boost::asio::read(* t_serial, t_buf_command, t_ec );
     char command1[BUFFER_SIZE_COMMAND] {};
     t_buf_command.sgetn(command1, BUFFER_SIZE_COMMAND);
 
@@ -73,17 +73,17 @@ uint8_t communications::has_hub()
 */
 void communications::write_command( std::string command )
 {
-    boost::asio::write( *t_serial, boost::asio::buffer(command), t_ec );
+    boost::asio::write(* t_serial, boost::asio::buffer(command), t_ec );
 }
 
 /*
 *   Reads Arduino's commands asyncronously
 */
-void communications::read_async_command( office *the_office )
+void communications::read_async_command( office* the_office )
 {   // https://web.fe.up.pt/~ee96100/projecto/Tabela%20ascii.htm
     if(!t_coms_available) return;
 
-    async_read( *t_serial, t_buf_command, 
+    async_read(* t_serial, t_buf_command, 
         [ this, the_office ]( const boost::system::error_code &t_ec, std::size_t len )
         {   
 
@@ -95,7 +95,7 @@ void communications::read_async_command( office *the_office )
             {   
                 char command2[BUFFER_SIZE_STREAM-BUFFER_SIZE_COMMAND] { };
                 boost::asio::streambuf aux_{BUFFER_SIZE_STREAM-BUFFER_SIZE_COMMAND};
-                boost::asio::read( *t_serial, aux_, this->t_ec );
+                boost::asio::read(* t_serial, aux_, this->t_ec );
                 aux_.sgetn(command2, BUFFER_SIZE_STREAM-BUFFER_SIZE_COMMAND);
 
                 char command[BUFFER_SIZE_STREAM] {};
@@ -133,11 +133,11 @@ void communications::read_async_command( office *the_office )
 /*
 *  Truly implementation of read until delimiter
 */
-void communications::read_until_asynchronous( office *the_office, char delimiter )
+void communications::read_until_asynchronous( office* the_office, char delimiter )
 {   
     if(!t_coms_available) return;
 
-    boost::asio::async_read( *t_serial, t_buf, 
+    boost::asio::async_read(* t_serial, t_buf, 
         [ this, the_office, delimiter ]( const boost::system::error_code &t_ec, std::size_t len ){
 
             char trash;

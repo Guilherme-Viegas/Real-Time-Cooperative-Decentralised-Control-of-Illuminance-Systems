@@ -28,12 +28,44 @@ bool hub()
         // I am no longer an arduino HUB
         return false;
     }
+    else if( welcome[1] == 'o') // teste err
+    {   
+        Serial.write("+");
+        Serial.write(welcome[1]);
+        Serial.write(welcome[0]-'0');
+        float_2_bytes( 1 | 0x80);
+    }
+    else if( welcome[1] == 'O' ) // teste ack
+    {   
+        Serial.write("+");
+        Serial.write(welcome[1]);
+        Serial.write(welcome[0]-'0');
+        Serial.write(welcome[2]);
+        Serial.write(welcome[3]);
+    }
+    else if( welcome[1] == 'x' && welcome[2] == '*' && welcome[3] == '*' ) // teste value
+    {   
+        int i = (int) welcome[1];
+        Serial.write("+");
+        Serial.write(welcome[1]);
+        Serial.write(arduinos);
+        float_2_bytes(45.9);
+    }
+    else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'E' ) // last message
+    {   
+        // I am no longer an arduino HUB
+        return false;
+    }
+    else if( welcome[0] == 'r' && welcome[1] == 'r' && welcome[2] == 'r' && welcome[3] == 'r' ) // restart
+    {   
+      greeting(2);
+    }
     else if( welcome[0] == 'R' && welcome[1] == 'P' && welcome[2] == 'i' && welcome[3] == 'S' )
     {   
 
         send_time();
         
-        bool state[arduinos] = {true};
+        int state[arduinos] = {1};
         for(int a=0; a<arduinos; a++)
         {
           Serial.write("+");
@@ -76,7 +108,7 @@ bool hub()
     else
     {
         // MISS
-        // Serial.write("x");
+        // Serial.write("z");
         // Serial.write(7); // number of arduinos
         // Serial.write(":(");
         Serial.write("+");
