@@ -25,7 +25,7 @@ byte my_address;
 
 boolean LOOP = false;
 boolean SIMULATOR = false;
-boolean DEBUG = true;
+boolean DEBUG = false;
 
 /*-------------------------------------|
  * GENERIC VARIABLES                   |
@@ -243,7 +243,7 @@ void readMsg(int *frames_size, can_frame frames[20]){
 }
 
 void setup() {
-  Serial.begin(57600);
+  Serial.begin(230400);
 
   int eeprom_addr = 0;
   EEPROM.get(eeprom_addr, my_address);
@@ -564,13 +564,13 @@ void check_messages(can_frame new_msg){
         consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
         LOOP = false;
         SIMULATOR = false;
-        msg_to_send = hub_sending_ack;
-        writeMsg(new_msg.data[1], msg_to_send, my_address, bytes2float(received_val));
         msg_to_send = start_consensus;
         writeMsg(0, msg_to_send, my_address);
       }
+      msg_to_send = hub_sending_ack;
+      writeMsgWithFloat(new_msg.data[1], msg_to_send, my_address, bytes2float(received_val));
   } else if((new_msg.data[0] == hub_sending_ack) and (new_msg.can_id == my_address)) {
-      Serial.write("+ACK!");
+      Serial.print("+ACK!");
   } else if((new_msg.data[0] == hub_set_bound_occupied) and (new_msg.can_id == my_address)) {
       byte received_val[2] = {new_msg.data[2], new_msg.data[3]};
       float new_bound = bytes2float(received_val);
@@ -582,15 +582,15 @@ void check_messages(can_frame new_msg){
         consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses[4]);
         LOOP = false;
         SIMULATOR = false;
-        msg_to_send = hub_sending_ack;
-        writeMsg(new_msg.data[1], msg_to_send, my_address, new_bound);
         msg_to_send = start_consensus;
         writeMsg(0, msg_to_send, my_address);
       }
+      msg_to_send = hub_sending_ack;
+      writeMsgWithFloat(new_msg.data[1], msg_to_send, my_address, new_bound);
   } else if((new_msg.data[0] == hub_set_bound_unoccupied) and (new_msg.can_id == my_address)) {
       byte received_val[2] = {new_msg.data[2], new_msg.data[3]};
       float new_bound = bytes2float(received_val);
-      if((occupancy == true) and (lower_L_bound != new_bound)) {
+      if((occupancy == false) and (lower_L_bound != new_bound)) {
         prev_state = my_state;
         my_state = ready_consensus;
         lower_L_unoccupied = new_bound;
@@ -598,11 +598,11 @@ void check_messages(can_frame new_msg){
         consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
         LOOP = false;
         SIMULATOR = false;
-        msg_to_send = hub_sending_ack;
-        writeMsg(new_msg.data[1], msg_to_send, my_address, new_bound);
         msg_to_send = start_consensus;
         writeMsg(0, msg_to_send, my_address);
       }
+      msg_to_send = hub_sending_ack;
+      writeMsgWithFloat(new_msg.data[1], msg_to_send, my_address, new_bound);
   } else if((new_msg.data[0] == hub_set_cost) and (new_msg.can_id == my_address)) {
       byte received_val[2] = {new_msg.data[2], new_msg.data[3]};
       float new_cost = bytes2float(received_val);
@@ -616,7 +616,7 @@ void check_messages(can_frame new_msg){
       msg_to_send = hub_sending_ack;
       writeMsg(new_msg.data[1], msg_to_send, my_address, new_cost);
       msg_to_send = start_consensus;
-      writeMsg(0, msg_to_send, my_address);
+      writeMsgWithFloat(0, msg_to_send, my_address, new_cost);
   } else if((new_msg.data[0] == hub_request_stream) and (new_msg.can_id == my_address)) {
       transmitting = true;
       address_to_send_stream = new_msg.data[1];
@@ -812,8 +812,8 @@ bool hub()
       if(addr_to_send == my_address) {
         if(occupancy != new_occupancy) { //Only if it's different I need to do another consensus
           occupancy = new_occupancy;
-          Serial.write("+");
-          Serial.write(welcome);
+          Serial.print("+");
+          Serial.print(welcome);
           prev_state = my_state;
           my_state = ready_consensus;
           lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
@@ -824,8 +824,8 @@ bool hub()
           writeMsg(0, msg_to_send, my_address);
         }
         else { //No change on occupancy and no need for new consensus
-          Serial.write("+");
-          Serial.write(welcome);
+          Serial.print("+");
+          Serial.print(welcome);
         }
       } else {
           msg_to_send = hub_set_occupancy;
@@ -834,8 +834,8 @@ bool hub()
   } else if(welcome[0] == 'O') {
       if(addr_to_send == my_address) {
         if( (occupancy == true) and (lower_L_bound != new_bound) ) { //If my selected occupancy is unoccupied and the received is different from min, then a new consensus is needed
-          Serial.write("+");
-          Serial.write(welcome);
+          Serial.print("+");
+          Serial.print(welcome);
           prev_state = my_state;
           my_state = ready_consensus;
           lower_L_occupied = new_bound;
@@ -847,8 +847,8 @@ bool hub()
           writeMsg(0, msg_to_send, my_address);
         }
         else { //No change on occupancy and no need for new consensus
-          Serial.write("+");
-          Serial.write(welcome);
+          Serial.print("+");
+          Serial.print(welcome);
         }
         lower_L_occupied = new_bound;
       } else {
@@ -858,8 +858,8 @@ bool hub()
   } else if(welcome[0] == 'U') {
       if(addr_to_send == my_address) {
         if( (occupancy == true) and (lower_L_bound != new_bound) ) { //If my selected occupancy is unoccupied and the received is different from min, then a new consensus is needed
-          Serial.write("+");
-          Serial.write(welcome);
+          Serial.print("+");
+          Serial.print(welcome);
           prev_state = my_state;
           my_state = ready_consensus;
           lower_L_unoccupied = new_bound;
@@ -871,8 +871,8 @@ bool hub()
           writeMsg(0, msg_to_send, my_address);
         }
         else { //No change on occupancy and no need for new consensus
-          Serial.write("+");
-          Serial.write(welcome);
+          Serial.print("+");
+          Serial.print(welcome);
         }
         lower_L_unoccupied = new_bound;
       } else {
@@ -881,8 +881,8 @@ bool hub()
       }
   } else if(welcome[0] == 'c') {
       if(addr_to_send == my_address) {
-          Serial.write("+");
-          Serial.write(welcome);
+          Serial.print("+");
+          Serial.print(welcome);
           prev_state = my_state;
           my_state = ready_consensus;
           my_cost = new_bound;
@@ -940,8 +940,8 @@ byte* float_2_bytes(float fnum, bool flag)
       number[1] = (byte) (output>>8);
       return number;
     } else {
-      Serial.write( (byte) (output>>8) ); // write second byte - DEBUG: Serial.println((byte) (output>>8))
-      Serial.write( (byte) output );  // write first byte - DEBUG: Serial.println((byte) output);
+      Serial.print( (byte) (output>>8) ); // write second byte - DEBUG: Serial.println((byte) (output>>8))
+      Serial.print( (byte) output );  // write first byte - DEBUG: Serial.println((byte) output);
     }
     return 0;
 }
