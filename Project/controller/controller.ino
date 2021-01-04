@@ -479,13 +479,15 @@ void w8ing_consensus_msgs_function() {
       pid.setReferenceLux( (finalDimming*255.0)/100.0 );
       LOOP = true;
       SIMULATOR = true;
-      Serial.println("DIM: " + String(finalDimming));
-      Serial.println("OFFSET = " + String(my_offset));
-      for(byte i=0; i<number_of_addresses-1; i++) {
-        Serial.print(my_gains_vect[i], 4);
-        Serial.print(" ");
+      if(DEBUG) {
+        Serial.println("DIM: " + String(finalDimming));
+        Serial.println("OFFSET = " + String(my_offset));
+        for(byte i=0; i<number_of_addresses-1; i++) {
+          Serial.print(my_gains_vect[i], 4);
+          Serial.print(" ");
+        }
+        Serial.println();
       }
-      Serial.println();
     }
   }
 }
