@@ -88,7 +88,7 @@ private:    // this things are private
     // functions
     float bytes_2_float(uint8_t most_significative_bit, uint8_t less_significative_bit) const;
     void restart_it_all( int lamps );
-    
+    void udp_stream ( float );
 
 public:     // this things are public
 
@@ -112,7 +112,6 @@ public:     // this things are public
     float get_accumulated_visibility_error();
     float get_accumulated_flicker_error();
     int set_upd_stream( char type = ' ', int address = 0, boost::asio::ip::udp::socket* socket = NULL, boost::asio::ip::udp::endpoint* endpoint = NULL);
-    void udp_stream ( float );
     int get_num_lamps();
 
 };

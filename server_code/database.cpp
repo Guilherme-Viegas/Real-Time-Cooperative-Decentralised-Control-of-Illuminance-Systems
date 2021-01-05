@@ -14,6 +14,7 @@ office::office( uint8_t num_lamps ) : t_num_lamps(num_lamps)
 
 office::~office()
 {   
+    std::lock_guard<std::mutex> lock(t_mutex);
     if(DEBUG) std::cout << "\nExits the office, see you later aligator! "  << this << std::endl ; // goodbye message
     for( int l=0; l<t_num_lamps; l++) { delete t_lamps_array[l]; }    // free the memory of each lamp
     delete[] t_lamps_array;  // free the memory of the array of teh lamps' address
@@ -403,7 +404,8 @@ lamp::lamp( int address ) : t_address( (uint8_t)address ) // stores personal add
 }
 
 lamp::~lamp()
-{
+{   
+    std::lock_guard<std::mutex> lock(t_mutex);
     if(DEBUG) std::cout << "Ups... seems that one lamp is not available anymore.\n";    // goodbye message
 }
 
