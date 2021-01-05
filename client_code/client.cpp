@@ -67,7 +67,7 @@ void udp_start_read_server(ip::udp::socket* client)
                               if (!err && bytes_transferred)
                               {
                                   std::string command = std::string(udp_message.begin(), udp_message.begin() + bytes_transferred);
-                                  if (command[0] == 's')
+                                  if (command[0] != 'b')
                                       std::cout << "[UDP] server: " << command << std::endl;
                                   if (file.is_open())
                                   {
@@ -357,11 +357,11 @@ int main()
     // Connects to the endpoints
     // https://www.whatismyip.com
     ip::tcp::socket tcp_socket(io);
-    ip::tcp::endpoint tcp_endpoint(ip::address::from_string("127.0.0.1"), PORT); // 46.189.132.92
+    ip::tcp::endpoint tcp_endpoint(ip::address::from_string("127.0.0.1"), PORT); // 148.71.71.213
     find_TCP_server(&tcp_socket, &tcp_endpoint);
 
     ip::udp::socket udp_socket(io);
-    ip::udp::endpoint udp_endpoint(ip::address::from_string("127.0.0.1"), PORT + 1); // 46.189.132.92
+    ip::udp::endpoint udp_endpoint(ip::address::from_string("127.0.0.1"), PORT + 1); // 148.71.71.213
     start_UDP_connection(&udp_socket, &udp_endpoint);
 
     boost::asio::posix::stream_descriptor stm_desc{io, ::dup(STDIN_FILENO)};

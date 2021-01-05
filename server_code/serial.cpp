@@ -63,6 +63,11 @@ uint8_t communications::has_hub()
     {
         num_lamps =  (int)(uint8_t)command1[1];
     }
+    else
+    {
+        num_lamps = has_hub();
+    }
+    
 
     if(DEBUG) std::cout << "It was found " << num_lamps << " desk"<< ( (num_lamps != 1) ? "s" : "") << "!\n";
     return num_lamps;

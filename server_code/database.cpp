@@ -154,7 +154,7 @@ void office::updates_database( char command[], uint8_t size )
     case 'r':
     {
         set_command = 0; // speacial case
-        std::string client_msg = std::to_string(address) + std::string(1, type);
+        std::string client_msg =  std::string(1, type) + std::to_string(address);
         std::vector<int>::size_type sz = t_clients_address.size();
         value = bytes_2_float(command[2], command[3]);
 
@@ -176,7 +176,7 @@ void office::updates_database( char command[], uint8_t size )
     if( set_command != 0 )   // happens when the arduino return same value that was set by the client 
     {   
         int int_value = value * 10;
-        std::string client_msg = std::to_string(address) + std::string(1, type) + std::to_string(int_value);
+        std::string client_msg = std::string(1, type) + std::to_string(address) + std::to_string(int_value);
 
         std::vector<int>::size_type sz = t_clients_address.size();
         for(unsigned int clt = 0; clt < sz ; clt++)
@@ -333,8 +333,6 @@ int office::set_upd_stream( char type, int address, boost::asio::ip::udp::socket
  */
  void office::udp_stream( float value )
  {  
-    std::lock_guard<std::mutex> lock(t_mutex);
-
     std::string str_value =  std::to_string( value );
     std::string str_time =  std::to_string( t_time_since_last_restart );
 

@@ -33,7 +33,7 @@ void setup() {
 
   initInterrupt1();
 
-}
+} 
 
 void loop() {
 
@@ -56,7 +56,6 @@ void loop() {
   }      
     
 }
-
 // screen /dev/tty.usbmodem14601 baud_rate
 
 // interrupt service routine 

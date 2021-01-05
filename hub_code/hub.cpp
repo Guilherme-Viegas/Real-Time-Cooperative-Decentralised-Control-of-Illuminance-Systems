@@ -28,26 +28,24 @@ bool hub()
         // I am no longer an arduino HUB
         return false;
     }
-    else if( welcome[1] == 'o') // teste err
+    else if( welcome[0] == 'o') // teste err
     {   
         Serial.write("+");
-        Serial.write(welcome[1]);
-        Serial.write(welcome[0]-'0');
-        float_2_bytes( 1 | 0x80);
+        Serial.write(welcome[0]);
+        Serial.write(arduinos);
+        float_2_bytes( 1 | 0x80 );
     }
-    else if( welcome[1] == 'O' ) // teste ack
+    else if( welcome[0] == 'O' ) // teste ack
     {   
         Serial.write("+");
-        Serial.write(welcome[1]);
-        Serial.write(welcome[0]-'0');
-        Serial.write(welcome[2]);
-        Serial.write(welcome[3]);
+        Serial.write(welcome[0]);
+        Serial.write(arduinos);
+        float_2_bytes(45.9);
     }
-    else if( welcome[1] == 'x' && welcome[2] == '*' && welcome[3] == '*' ) // teste value
+    else if( welcome[0] == 'x' && welcome[2] == '*' && welcome[3] == '*' ) // teste value
     {   
-        int i = (int) welcome[1];
         Serial.write("+");
-        Serial.write(welcome[1]);
+        Serial.write(welcome[0]);
         Serial.write(arduinos);
         float_2_bytes(45.9);
     }

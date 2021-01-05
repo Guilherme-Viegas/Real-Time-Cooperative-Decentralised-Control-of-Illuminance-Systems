@@ -176,7 +176,7 @@ void tcp_connection::start_receive()
             else
             {
                 std::cout << "TCP client has left. " << this << std::endl;
-                //delete this;
+                t_socket.close();
             }
         });
 }
@@ -487,7 +487,7 @@ void tcp_connection::start_timer()
                 // 'ack' to be sent
                 if (!last_call)
                 {   
-                    if( (char)t_database->t_clients_command.at(clt)[1] == 'x' || (char)t_database->t_clients_command.at(clt)[1] == 'r' )   // get command
+                    if( (char)t_database->t_clients_command.at(clt)[0] == 'x' || (char)t_database->t_clients_command.at(clt)[0] == 'r' )   // get command
                     {   
                         std::string response = std::string(1, (char)t_database->t_clients_command.at(clt)[1] ) + '\t' +
                                                 std::string(1, (char)t_database->t_clients_command.at(clt)[0] ) + '\t' +
