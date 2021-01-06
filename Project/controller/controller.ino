@@ -47,7 +47,7 @@ state_machine prev_state = booting;
 /*------------------------|
  * TYPE OF MESSAGES       |
 --------------------------|*/
-enum msg_types {hello=1, olleh=2, ack=3, turn_off_led=4, read_offset_value=5, read_gain=6, your_time_master=7, start_consensus=8, sending_consensus_val=9, turn_max_led=10, hub_set_occupancy=255, hub_sending_ack=254, hub_set_bound_occupied=253, hub_set_bound_unoccupied=252, hub_set_cost=251, hub_request_stream=250, hub_sending_stream_lux=249, hub_sending_stream_dimming=248, hub_stop_stream = 247};
+enum msg_types {hello=1, olleh=2, ack=3, turn_off_led=4, read_offset_value=5, read_gain=6, your_time_master=7, start_consensus=8, sending_consensus_val=9, turn_max_led=10, hub_set_occupancy=255, hub_sending_ack=254, hub_set_bound_occupied=253, hub_set_bound_unoccupied=252, hub_set_cost=251, hub_request_stream=250, hub_sending_stream_lux=249, hub_sending_stream_dimming=248, hub_stop_stream = 247, hub_get_reference = 246, hub_get_external = 245, hub_sending_reference=244, hub_sending_external=243, hub_reset=242};
 msg_types msg_to_send;
 /*-------------------------------------------
  * VARIABLES FOR THE CALIBRATION            |
@@ -100,6 +100,7 @@ Consensus consensus;
 int num_consensus_msgs = 0;
 float tmp_received_dimmings[3][3] = {{0}};
 float finalDimming = 0;
+float referenceLux = 0;
 byte current_sent_msgs = 0;
 char welcome[BUFFER_SIZE];
 
@@ -111,6 +112,7 @@ void writeMsg(int id, byte msg_type, byte sender_address, float dimming=-1, byte
 void writeMsgWithFloat(int id, byte msg_type, byte sender_address, float value = 0);
 void smallMsg(int id, byte msg_type, byte sender_address);
 can_frame* readMsg(int * frames_arr_size);
+float computeReferenceLux();
 //*****HUB******
 byte* float_2_bytes(float fnum, bool flag);
 float bytes2float(byte * myBytes);
@@ -372,7 +374,9 @@ void calibration_function() {
               msg_to_send = turn_off_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 0;
-              pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+              referenceLux = 0;
+              pid.setReferenceLux( 0 );
+              pid.setUff(0);
               LOOP = true;
               SIMULATOR = true;
           } else if(flag == 1) {
@@ -381,7 +385,9 @@ void calibration_function() {
               msg_to_send = turn_max_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 100;
-              pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+              referenceLux = 85.5;
+              pid.setReferenceLux( 1000 );
+              pid.setUff(255);
               LOOP = true;
               SIMULATOR = true;
           } else {
@@ -464,8 +470,10 @@ void w8ing_consensus_msgs_function() {
     if(consensus.getCurrentIteration() >= max_iterations) {
       prev_state = my_state;
       my_state = standard;
-      finalDimming = consensus.getFinalDimming();
-      pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+      finalDimming = consensus.getFinalDimming((retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1));
+      referenceLux = computeReferenceLux();
+      pid.setReferenceLux( referenceLux );
+      pid.setUff( (finalDimming*255.0) /100.0);
       LOOP = true;
       SIMULATOR = true;
       if(DEBUG) {
@@ -476,6 +484,7 @@ void w8ing_consensus_msgs_function() {
           Serial.print(" ");
         }
         Serial.println();
+        Serial.println("REF LUX " + String(referenceLux));
       }
     }
   }
@@ -506,13 +515,17 @@ void check_messages(can_frame new_msg){
       if(my_offset != -1) {
         LOOP = true;
         SIMULATOR = true;
-        pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+        referenceLux = 0;
+        pid.setReferenceLux( 0 );
+        pid.setUff( 0 );
       }
       msg_to_send = ack;
       writeMsg(new_msg.data[1], msg_to_send, my_address);
   } else if(new_msg.data[0] == turn_max_led ) {
       finalDimming = 100;
-      pid.setReferenceLux( (finalDimming*255.0)/100.0 );
+      referenceLux = 85.5;
+      pid.setReferenceLux( 85.5 ); //An unachievable max value(pid works out the max value
+      pid.setUff( 255.0 );
       LOOP = true;
       SIMULATOR = true;
   } else if( new_msg.data[0] == read_offset_value  ) {
@@ -622,10 +635,27 @@ void check_messages(can_frame new_msg){
       Serial.write("+s");
       Serial.write(new_msg.data[1]);
       float_2_bytes( lux_stream, false );
-      float_2_bytes( 100.0*pid.getU()/255.0 , false );
+      Serial.write(new_msg.data[2]);
+      Serial.write(new_msg.data[3]);
   } else if(new_msg.data[0] == hub_stop_stream) {
-    transmitting = false;
-    address_to_send_stream = -1;
+      transmitting = false;
+      address_to_send_stream = -1;
+  } else if( (new_msg.data[0] == hub_get_reference) and (new_msg.can_id == my_address) ) {
+      msg_to_send = hub_sending_reference;
+      writeMsgWithFloat(new_msg.data[1], msg_to_send, my_address, referenceLux);
+  } else if( (new_msg.data[0] == hub_get_external) and (new_msg.can_id == my_address) ) {
+      msg_to_send = hub_sending_external;
+      writeMsgWithFloat(new_msg.data[1], msg_to_send, my_address, my_offset);
+  } else if( (new_msg.data[0] == hub_sending_external) and (new_msg.can_id == my_address) ) {
+      Serial.write("+x");
+      Serial.write(new_msg.data[1]);
+      Serial.write(new_msg.data[2]);
+      Serial.write(new_msg.data[3]);
+  } else if( (new_msg.data[0] == hub_sending_reference) and (new_msg.can_id == my_address) ) {
+      Serial.write("+r");
+      Serial.write(new_msg.data[1]);
+      Serial.write(new_msg.data[2]);
+      Serial.write(new_msg.data[3]);
   }
 }
 
@@ -769,6 +799,10 @@ void hub()
       msg_to_send = hub_stop_stream;
       writeMsg(0, msg_to_send, my_address);
       transmitting = false;
+  } else if( welcome[0] == 'r' && welcome[1] == 'r' && welcome[2] == 'r' && welcome[3] == 'r' ) { //Reset   
+      //Reset values and ask for everyone to go to booting state
+      //After a few seconds (3s) (saved in resetCounter variable) I send the new greeting
+      greeting(number_of_addresses-1);
   } else if( (char)welcome[0] == 'R' && (char)welcome[1] == 'P' && (char)welcome[2] == 'i' && (char)welcome[3] == 'S' ) {   //Stream
       send_time();
 
@@ -813,11 +847,38 @@ void hub()
           prev_state = my_state;
           my_state = ready_consensus;
           lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
-          consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
-          LOOP = false;
-          SIMULATOR = false;
-          msg_to_send = start_consensus;
-          writeMsg(0, msg_to_send, my_address);
+          byte flag = checkBoundsOnAskedLux(lower_L_bound);
+          if(flag == -1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_off_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 0;
+              referenceLux = 0;
+              pid.setReferenceLux( 0 );
+              pid.setUff(0);
+              LOOP = true;
+              SIMULATOR = true;
+          } else if(flag == 1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_max_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 100;
+              referenceLux = 85.5;
+              pid.setReferenceLux( 85.5 );
+              pid.setUff(255);
+              LOOP = true;
+              SIMULATOR = true;
+          } else {
+              prev_state = my_state;
+              my_state = ready_consensus;
+              consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
+              msg_to_send = start_consensus;
+              writeMsg(0, msg_to_send, my_address);
+              LOOP = false;
+              SIMULATOR = false;
+          }
         }
         Serial.write("+o");
         Serial.write(welcome[1]-48);
@@ -834,11 +895,38 @@ void hub()
           my_state = ready_consensus;
           lower_L_occupied = new_bound;
           lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
-          consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
-          LOOP = false;
-          SIMULATOR = false;
-          msg_to_send = start_consensus;
-          writeMsg(0, msg_to_send, my_address);
+          byte flag = checkBoundsOnAskedLux(lower_L_bound);
+          if(flag == -1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_off_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 0;
+              referenceLux = 0;
+              pid.setReferenceLux( 0 );
+              pid.setUff(0);
+              LOOP = true;
+              SIMULATOR = true;
+          } else if(flag == 1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_max_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 100;
+              referenceLux = 85.5;
+              pid.setReferenceLux( 85.5 );
+              pid.setUff(255);
+              LOOP = true;
+              SIMULATOR = true;
+          } else {
+              prev_state = my_state;
+              my_state = ready_consensus;
+              consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
+              msg_to_send = start_consensus;
+              writeMsg(0, msg_to_send, my_address);
+              LOOP = false;
+              SIMULATOR = false;
+          }
         }
         Serial.write("+O");
         Serial.write(welcome[1]-48);
@@ -852,15 +940,40 @@ void hub()
   } else if(welcome[0] == 'U') {
       if(addr_to_send == my_address) {
         if( (occupancy == false) and (lower_L_bound != new_bound) ) { //If my selected occupancy is unoccupied and the received is different from min, then a new consensus is needed
-          prev_state = my_state;
-          my_state = ready_consensus;
           lower_L_unoccupied = new_bound;
           lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
-          consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
-          LOOP = false;
-          SIMULATOR = false;
-          msg_to_send = start_consensus;
-          writeMsg(0, msg_to_send, my_address);
+          byte flag = checkBoundsOnAskedLux(lower_L_bound);
+          if(flag == -1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_off_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 0;
+              referenceLux = 0;
+              pid.setReferenceLux( 0 );
+              pid.setUff(0);
+              LOOP = true;
+              SIMULATOR = true;
+          } else if(flag == 1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_max_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 100;
+              referenceLux = 85.5;
+              pid.setReferenceLux( 85.5 );
+              pid.setUff(255);
+              LOOP = true;
+              SIMULATOR = true;
+          } else {
+              prev_state = my_state;
+              my_state = ready_consensus;
+              consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
+              msg_to_send = start_consensus;
+              writeMsg(0, msg_to_send, my_address);
+              LOOP = false;
+              SIMULATOR = false;
+          }
         }
         Serial.write("+U");
         Serial.write(welcome[1]-48);
@@ -871,7 +984,7 @@ void hub()
           msg_to_send = hub_set_bound_unoccupied;
           writeMsgWithFloat(addr_to_send, msg_to_send, my_address, new_bound);
       }
-  } else if((char)welcome[0] == 'c') {
+  } else if(welcome[0] == 'c') {
       if(addr_to_send == my_address) {
           Serial.write("+c");
           Serial.write(welcome[1]-48);
@@ -881,15 +994,60 @@ void hub()
           my_state = ready_consensus;
           my_cost = new_bound;
           lower_L_bound = occupancy == true ? lower_L_occupied : lower_L_unoccupied;
-          consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
-          LOOP = false;
-          SIMULATOR = false;
-          msg_to_send = start_consensus;
-          writeMsg(0, msg_to_send, my_address);
+          byte flag = checkBoundsOnAskedLux(lower_L_bound);
+          if(flag == -1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_off_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 0;
+              referenceLux = 0;
+              pid.setReferenceLux( 0 );
+              pid.setUff(0);
+              LOOP = true;
+              SIMULATOR = true;
+          } else if(flag == 1) {
+              prev_state = my_state;
+              my_state = standard;
+              msg_to_send = turn_max_led;
+              writeMsg(0, msg_to_send, msg_to_send);
+              finalDimming = 100;
+              referenceLux = 85.5;
+              pid.setReferenceLux( 85.5 );
+              pid.setUff(255);
+              LOOP = true;
+              SIMULATOR = true;
+          } else {
+              prev_state = my_state;
+              my_state = ready_consensus;
+              consensus.Init(lower_L_bound, my_offset, my_gains_vect, my_cost, my_address, number_of_addresses, nodes_addresses);
+              msg_to_send = start_consensus;
+              writeMsg(0, msg_to_send, my_address);
+              LOOP = false;
+              SIMULATOR = false;
+          }
       } else {
           msg_to_send = hub_set_cost;
           writeMsgWithFloat(addr_to_send, msg_to_send, my_address, new_bound);
       }
+  } else if( (welcome[0] == 'g') and (welcome[1] == 'x') ) {
+     if( ((int)welcome[2]-48) == my_address ) {
+        Serial.write("+x");
+        Serial.write(welcome[2]-48);
+        float_2_bytes(my_offset , false);
+     } else {
+        msg_to_send = hub_get_external;
+        writeMsgWithFloat(addr_to_send, msg_to_send, my_address);
+     }
+  } else if( (welcome[0] == 'g') and (welcome[1] == 'r') ) {
+      if( ((int)welcome[2]-48) == my_address ) {
+        Serial.write("+r");
+        Serial.write(welcome[2]-48);
+        float_2_bytes(my_offset , false);
+     } else {
+        msg_to_send = hub_get_external;
+        writeMsgWithFloat(addr_to_send, msg_to_send, my_address);
+     }
   } else {
       Serial.write("+");
       Serial.write(welcome[1]-48);
@@ -1037,4 +1195,13 @@ byte checkBoundsOnAskedLux(float askedLux) {
     return 1;
   }
   return 0;
+}
+
+float computeReferenceLux() {
+  float sum = 0;
+  for(byte i=0; i < number_of_addresses-1; i++) {
+    sum += ((consensus.getFinalDimming(i) * 255.0) /100.0) * my_gains_vect[i];
+  }
+  sum += my_offset;
+  return sum;
 }

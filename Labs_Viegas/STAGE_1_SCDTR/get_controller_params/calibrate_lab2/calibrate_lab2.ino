@@ -15,16 +15,13 @@ const int prescale = 1; //fastest possible (1 for fastest)
 volatile bool flag;
 volatile int counter = 0;
 volatile int value[71];
-volatile long val_time[71];
+long startTime = 0;
 
 float vo = 0.0;
 
 //Interrupt for analog reading 
 ISR(TIMER1_COMPA_vect){
-  flag = 1; //notify main loop
-  value[counter] = analogRead(LDR_ANALOG);
-  val_time[counter] = micros() - val_time[0];
-  counter++;
+  flag = true; //notify main loop
 }
 
 //(LUX, R2 em Ohm)
@@ -76,88 +73,9 @@ float voltageToAnalog(float analogInput) {
   return (analogInput * 1023.0) / VCC;
 }
 
-void computeTauUp(int inputPort, int outputPort) {
-  
-  for(int i=0; i<256; i+=5){
-    counter=0;
-    //Serial.print("Expected Theorical Max: ");
-    //Serial.println(voltageToAnalog(getTheoricX(((float)(i))*G)));
-    analogWrite(outputPort, i);
-    unsigned long startTime = micros();
-    value[counter] = -1;
-    val_time[counter] = micros();
-    counter++;
-
-    sei(); //enable interrupt
-    while(micros() - startTime < 350000) { //Teacher instructed for 0.5s but it's to much, with 0.35 I have less points on the stable part so that I can have more on the unstable
-      if(flag) { //Post-interrupt related Operations
-        flag = 0;
-      }
-    }
-    cli(); //disable interrupt
-    //TCCR1A = 0; // clear register
-    //TCCR1B = 0; // clear register
-    //TCNT1 = 0; //reset counter
-
-    analogWrite(outputPort, 0); //To make a step that always returns to zero...To get better values of tau
-    Serial.print("PWM: ");
-    Serial.println(i);
-    for(int j=1; j<71; j++) {
-      Serial.print(value[j]);
-      Serial.print(" ");
-      Serial.println(val_time[j]);
-      value[j] = 0;
-      val_time[j] = 0;
-    }
-    Serial.println("STEP");
-    delay(60);
-    
-  }
-  
-}
-
-
-void computeTauDown(int inputPort, int outputPort) {
-  
-  for(int i=160; i>=0; i-=5){
-    counter=0;
-    analogWrite(outputPort, i);
-    unsigned long startTime = micros();
-    value[counter] = -1;
-    val_time[counter] = micros();
-    counter++;
-
-    sei(); //enable interrupt
-    while(micros() - startTime < 350000) { //Teacher instructed for 0.5s but it's to much, with 0.35 I have less points on the stable part so that I can have more on the unstable
-      if(flag) { //Post-interrupt related Operations
-        flag = 0;
-      }
-    }
-    cli(); //disable interrupt
-    //TCCR1A = 0; // clear register
-    //TCCR1B = 0; // clear register
-    TCNT1 = 0; //reset counter
-
-    analogWrite(outputPort, 255); //To make a step that always returns to zero...To get better values of tau
-    Serial.print("PWM: ");
-    Serial.println(i);
-    for(int j=1; j<71; j++) {
-      Serial.print(value[j]);
-      Serial.print(" ");
-      Serial.println(val_time[j]);
-      value[j] = 0;
-      val_time[j] = 0;
-    }
-    Serial.println("STEP");
-    delay(60);
-    
-  }
-  
-}
-
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(2000000);
   pinMode(LED_PWM, OUTPUT);
   TCCR2B = (TCCR2B & mask) | prescale;  //Raise Timer2 (pwm of port 3) for ldr not sensing led flicker
 
@@ -183,14 +101,27 @@ void setup() {
 
 void loop() {
   if(Serial.available() > 0) {
-    Serial.println("*** WAIT ***");
-
-    //Now we want to compute the tau characteristic for different pwm input step values
-    //Save it as tau.txt and run tau_plot.py
-    //computeTauUp(LDR_ANALOG, LED_PWM);
-
-    computeTauDown(LDR_ANALOG, LED_PWM);
-
+    //analogWrite(LED_PWM, 255);
+    delay(50);   
+    for(int i=0; i<255; i+=10) {
+      startTime = micros();
+      analogWrite(LED_PWM, i);
+      sei(); //enable interrupt
+      while(micros() - startTime < 1000000) { //Teacher instructed for 0.5s but it's to much, with 0.35 I have less points on the stable part so that I can have more on the unstable
+        if(flag) {
+          flag = false;
+          Serial.println(analogRead(LDR_ANALOG));
+          //Serial.print(" ");
+          //Serial.println(micros() - startTime);
+        }
+      }
+      cli();
+      //Serial.println("STEP\n");
+      //analogWrite(LED_PWM, i);
+      //delay(50);
+      analogWrite(LED_PWM, 0);
+      delay(100);
+    }
     while(1) {}
   }
 }
