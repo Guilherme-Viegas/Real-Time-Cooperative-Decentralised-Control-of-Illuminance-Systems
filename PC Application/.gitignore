@@ -1,0 +1,9 @@
+*.vscode
+
+#objects
+*/obj
+
+#executables
+*_exe
+
+*.txt
