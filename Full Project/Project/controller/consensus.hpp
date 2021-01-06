@@ -43,7 +43,7 @@ class Consensus {
 
     void updateDimmings( float tmpDimmings[3][3] );
     void incrementIterations();
-    float getFinalDimming();
+    float getFinalDimming(byte index);
 };
 
 #endif

@@ -22,7 +22,7 @@ void LdrController::setGain( byte led_pin, float m, float b ){
   //computeGain( led_pin );
   t_gain = 0.2930;
   t_offset = 0;
-  t_maxLux = 75.30;
+  t_maxLux = 85.5;
   //255*t_gain + t_offset;
 
 }

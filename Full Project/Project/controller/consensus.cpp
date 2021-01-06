@@ -193,8 +193,8 @@ int Consensus::getCurrentIteration() {
   return current_num_of_iterations;
 }
 
-float Consensus::getFinalDimming() {
-  return avg_dimming[(retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1)];
+float Consensus::getFinalDimming(byte index) {
+  return avg_dimming[index];
 }
 
 void Consensus::updateDimmings( float tmpDimmings[3][3] ) {
