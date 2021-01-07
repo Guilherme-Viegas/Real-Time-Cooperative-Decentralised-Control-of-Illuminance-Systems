@@ -251,20 +251,33 @@ void readMsg(int *frames_size, can_frame frames[20]){
 void setup() {
   Serial.begin(230400);
 
+  float tau_a_up;
+  float tau_b_up;
+  float tau_c_up;
+  float tau_a_down;
+  float tau_b_down;
+  float tau_c_down;  
+
   int eeprom_addr = 0;
   EEPROM.get(eeprom_addr, my_address);
   eeprom_addr += sizeof(byte);
   EEPROM.get(eeprom_addr, m);
   eeprom_addr += sizeof(float);
   EEPROM.get(eeprom_addr, b);
-
-  if(DEBUG) {
-    Serial.print(my_address, 4);
-    Serial.print(" - ");
-    Serial.print(m, 4);
-    Serial.print(" - ");
-    Serial.println(b, 4);
-  }
+  eeprom_addr += sizeof(float);
+  
+  EEPROM.get(eeprom_addr, tau_a_up);
+  eeprom_addr += sizeof(float);
+  EEPROM.get(eeprom_addr, tau_b_up);
+  eeprom_addr += sizeof(float);
+  EEPROM.get(eeprom_addr, tau_c_up);
+  eeprom_addr += sizeof(float);
+  EEPROM.get(eeprom_addr, tau_a_down);
+  eeprom_addr += sizeof(float);
+  EEPROM.get(eeprom_addr, tau_b_down);
+  eeprom_addr += sizeof(float);
+  EEPROM.get(eeprom_addr, tau_c_down);
+  eeprom_addr += sizeof(float);
 
   //CAN-BUS setup
   SPI.begin();
@@ -277,8 +290,8 @@ void setup() {
   //mcp2515.setRegister(MCP2515::RXB0CTRL_BUKT, 1);
   
   pid.ldr.setGain( pid.getLedPin(), m, b );
-  pid.ldr.t_tau_up.setParametersABC( 29.207246, -0.024485, 11.085226); // values computed in the python file
-  pid.ldr.t_tau_down.setParametersABC( 15.402250,  -0.015674, 8.313158); // values computed in the python file
+  pid.ldr.t_tau_up.setParametersABC( tau_a_up, tau_b_up, tau_c_up); // values computed in the python file
+  pid.ldr.t_tau_down.setParametersABC( tau_a_down,  tau_b_down, tau_c_down); // values computed in the python file
 
   if(DEBUG)
     Serial.println(F("Set up completed"));

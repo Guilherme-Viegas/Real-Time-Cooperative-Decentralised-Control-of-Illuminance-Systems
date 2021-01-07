@@ -90,38 +90,40 @@ void setup() {
   // = clock_freq/desired_freq - 1
   // = (16*10^6 / 12800) - 1 / (200*1Hz) – 1  //Because prescale is 64, each second or 1Hz is 64, so 200Hz is 200*64
   // = 1249
-  OCR1A = 1249; //must be <65536
+  // (16*10^6 / 64000) -1
+  // (16*10^6 / freq*8) - 1 == (16000000 / 16000) - 1 = 
+  //OCR1A = 1249; //must be <65536
+  OCR1A = 999; //must be <65536
   TCCR1B |= (1 << WGM12); //CTC On
   // Set prescaler for 64 -
-  TCCR1B |= (1 << CS11) | (1 << CS10);
+  TCCR1B |= (1 << CS11);
   // enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
   sei(); //enable interrupts
 }
 
 void loop() {
+  long updatedStartTime;
   if(Serial.available() > 0) {
-    //analogWrite(LED_PWM, 255);
-    delay(50);   
-    for(int i=0; i<255; i+=10) {
-      startTime = micros();
+    delay(50);
+    startTime = millis();
+    updatedStartTime = millis();
+    sei(); //enable interrupt
+    for(int i=0; i<255; i+=20) {
       analogWrite(LED_PWM, i);
-      sei(); //enable interrupt
-      while(micros() - startTime < 1000000) { //Teacher instructed for 0.5s but it's to much, with 0.35 I have less points on the stable part so that I can have more on the unstable
+      while( millis() - updatedStartTime < 500 ) { //Teacher instructed for 0.5s but it's to much, with 0.35 I have less points on the stable part so that I can have more on the unstable
         if(flag) {
           flag = false;
-          Serial.println(analogRead(LDR_ANALOG));
-          //Serial.print(" ");
-          //Serial.println(micros() - startTime);
+          Serial.print(i);
+          Serial.print("\t");
+          Serial.print(5.0 - (analogRead(LDR_ANALOG) * 5.0 / 1023.0));
+          Serial.print("\t");
+          Serial.println(millis() - startTime);
         }
       }
-      cli();
-      //Serial.println("STEP\n");
-      //analogWrite(LED_PWM, i);
-      //delay(50);
-      analogWrite(LED_PWM, 0);
-      delay(100);
+      updatedStartTime = millis();
     }
+    cli();
     while(1) {}
   }
 }
