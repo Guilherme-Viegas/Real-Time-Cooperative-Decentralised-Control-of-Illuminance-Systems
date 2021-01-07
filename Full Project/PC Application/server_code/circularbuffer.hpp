@@ -55,7 +55,7 @@ public: // this things are public
 
             t_ring[t_head] = new_item; // adds new value
 
-            if ( (t_head == t_tail) && t_is_full)
+            if ((t_head == t_tail) && t_is_full)
             {
                 t_tail = (t_tail + 1) % t_array_size;
             } // only updates tail if the array is full
@@ -106,5 +106,3 @@ public: // this things are public
 };
 
 #endif
-
-// https://embeddedartistry.com/blog/2017/05/17/creating-a-circular-buffer-in-c-and-c/

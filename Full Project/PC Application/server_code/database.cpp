@@ -129,7 +129,7 @@ void office::updates_database( char command[], uint8_t size )
         if( (address-1) == 0 ){ t_time_since_last_restart += SAMPLE_TIME_MILIS*std::pow(10,-3); }
 
         // streams
-        if(t_stream && ( t_stream_address == address ) ){ udp_stream( (t_stream_type == 'l') ? luminance : duty_cicle);  }
+        if(t_stream && ( t_stream_address == address ) ){ udp_stream( (t_stream_type == 'l') ? luminance : 100*duty_cicle);  }
 
        break;
     }

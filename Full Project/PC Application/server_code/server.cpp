@@ -13,7 +13,7 @@
 boost::asio::io_context io;
 
 // times to close the program
-void start_timer(boost::asio::steady_timer* timer)
+void start_timer(boost::asio::steady_timer *timer)
 {
     if (!TIME_TO_SHUT_DOWN)
     {
@@ -30,17 +30,17 @@ int main()
     // close server after x seconds
     boost::asio::steady_timer timer{io};
     start_timer(&timer);
-    
+
     std::signal(SIGINT, [](int sig) {
         std::cout << "\t Querias batinhas com enguias ...\n";
         io.stop();
-        });
+    });
 
     // init serial
     communications the_serial{&io};
 
     uint8_t num_lamps = the_serial.has_hub();
-    if( num_lamps <= 0 )
+    if (num_lamps <= 0)
     {
         std::cout << "Early exit with" << (int)num_lamps << " lamps" << std::endl;
         return 0;
@@ -56,7 +56,7 @@ int main()
     std::thread threads[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++)
     {
-        threads[i] = std::thread{ [](){ io.run(); } };
+        threads[i] = std::thread{[]() { io.run(); }};
     }
 
     for (int i = 0; i < NUM_THREADS; i++)
@@ -64,8 +64,10 @@ int main()
         threads[i].join();
     }
 
-    if(NUM_THREADS==0){ io.run(); }
-
+    if (NUM_THREADS == 0)
+    {
+        io.run();
+    }
 
     return 0;
 }

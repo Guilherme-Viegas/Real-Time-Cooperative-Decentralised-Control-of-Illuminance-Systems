@@ -3,8 +3,8 @@
 
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <iostream>
-#include <string>   // for std::string
-#include <sstream> //for std::stringstream 
+#include <string>  // for std::string
+#include <sstream> //for std::stringstream
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
@@ -26,19 +26,19 @@ class udp_server
 private:
     void start_receive();
     void handle_receive(const boost::system::error_code &error, size_t bytes_transferred);
-    void send_last_minute( std::string header, char type, int address );
-    void set_stream( char type, int address );
-    void send_acknowledgement( bool ack_err );
+    void send_last_minute(std::string header, char type, int address);
+    void set_stream(char type, int address);
+    void send_acknowledgement(bool ack_err);
 
-    office* t_database;
+    office *t_database;
 
     udp::socket t_socket;
     udp::endpoint t_remote_endpoint;
     boost::array<char, 1024> t_recv_buffer;
 
 public:
-    udp_server(boost::asio::io_service* io, unsigned short port, office* database);
-    ~udp_server(){ t_socket.close(); };
+    udp_server(boost::asio::io_service *io, unsigned short port, office *database);
+    ~udp_server() { t_socket.close(); };
 };
 
 /* --------------------------------------------------------------------------------------
@@ -48,34 +48,46 @@ public:
 
 using boost::asio::ip::tcp;
 
-class tcp_connection//: public boost::enable_shared_from_this<tcp_connection>
+class tcp_connection //: public boost::enable_shared_from_this<tcp_connection>
 {
 
 private:
-
     tcp::socket t_socket;
-    office* t_database;
-    communications* t_serial;
+    office *t_database;
+    communications *t_serial;
 
-    std::stringstream t_ss {};
+    std::stringstream t_ss{};
 
     boost::asio::steady_timer t_timer;
 
 public:
+    tcp_connection(boost::asio::io_service *io, office *database, communications *serial);
+    ~tcp_connection()
+    {
+        if (t_socket.is_open())
+        {
+            t_socket.close();
+        }
+    }
 
-    tcp_connection(boost::asio::io_service* io, office* database, communications* serial);
-    ~tcp_connection(){ if(t_socket.is_open()){ t_socket.close(); } }
-    
-    std::string t_client_address; 
-    void new_client(){ t_ss << &t_socket; t_client_address = t_ss.str(); }
-    tcp::socket &socket(){ new_client(); return t_socket; }
+    std::string t_client_address;
+    void new_client()
+    {
+        t_ss << &t_socket;
+        t_client_address = t_ss.str();
+    }
+    tcp::socket &socket()
+    {
+        new_client();
+        return t_socket;
+    }
 
     boost::array<char, 1024> t_recv_buffer;
 
     void start_receive();
-    void handle_receive(const boost::system::error_code& error,  size_t bytes_transferred);
-    void send_acknowledgement( bool ack_err );
-    void send_string( std::string s );
+    void handle_receive(const boost::system::error_code &error, size_t bytes_transferred);
+    void send_acknowledgement(bool ack_err);
+    void send_string(std::string s);
     void start_timer();
 };
 
@@ -84,16 +96,16 @@ class tcp_server
 private:
     void start_accept();
 
-    tcp_connection* new_connection;
-    std::vector<tcp_connection*> connections;
-    office* t_database;
-    communications* t_serial;
+    tcp_connection *new_connection;
+    std::vector<tcp_connection *> connections;
+    office *t_database;
+    communications *t_serial;
 
-    boost::asio::io_service* t_io;
+    boost::asio::io_service *t_io;
     tcp::acceptor t_acceptor;
 
 public:
-    tcp_server(boost::asio::io_service* io, unsigned short port, office* database, communications* serial);
+    tcp_server(boost::asio::io_service *io, unsigned short port, office *database, communications *serial);
     ~tcp_server();
 };
 

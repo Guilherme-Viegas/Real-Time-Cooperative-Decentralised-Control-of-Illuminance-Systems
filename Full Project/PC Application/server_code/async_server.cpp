@@ -405,7 +405,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                         t_serial->write_command(to_arduino);                                                                                                          // sent message
                         t_database->t_clients_address.push_back(t_client_address);                                                                                    // appends the clients address
                         t_database->t_clients_command.push_back(client_msg);                                                                                          // appends the new command
-                        t_database->t_acknowledge.push_back(-2);                                                                                                       // appends the arduino response
+                        t_database->t_acknowledge.push_back(-2);                                                                                                      // appends the arduino response
                     }
                 }
                 break;
@@ -472,10 +472,10 @@ void tcp_connection::start_timer()
         // delete index from the last when the client is done
         std::vector<int>::size_type sz = t_database->t_clients_address.size();
         for (int clt = sz - 1; clt >= 0; clt--)
-        {   
-            std::cout << "Queue of waiting for acknowledge instructions.\nNumber of pendent instructions: " << sz << std::endl;
-            std::cout << "Client's id: " << t_client_address << std::endl;
-            
+        {
+            std::cout << "Queue of waiting for acknowledge instructions.\nNumber of pendent instructions:\t" << sz << std::endl;
+            std::cout << "Client's id:\t" << t_client_address << "\t message :\t" << t_database->t_clients_command.at(clt) << std::endl;
+
             if (!t_database->t_clients_address.at(clt).compare(t_client_address)) // client has a pendent process
             {
                 std::cout << "Waiting message value:" << t_database->t_acknowledge.at(clt) << std::endl;
@@ -503,7 +503,7 @@ void tcp_connection::start_timer()
                 // erase commands
                 std::cout << "The command \t " << t_database->t_clients_command.at(clt)
                           << "\t poped out to \t" << t_database->t_clients_address.at(clt)
-                          << "\t whit the value \t" << t_database->t_acknowledge.at(clt) << std::endl;
+                          << "\t with the value \t" << t_database->t_acknowledge.at(clt) << std::endl;
 
                 t_database->t_acknowledge.erase(t_database->t_acknowledge.begin() + clt);
                 t_database->t_clients_command.erase(t_database->t_clients_command.begin() + clt); // if the clients wants to know the command, print this before send teh acknowledge
