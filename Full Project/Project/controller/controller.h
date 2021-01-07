@@ -44,7 +44,7 @@ class ControllerPid{
 
     ControllerPid( byte pin_led, int pin_ldr );  // constructor
 
-    void setReferenceLux( float reference );
+    void setReferenceLux( float reference, float pwm );
     void setUff( float uff );
     float getU();
     unsigned long get_to();

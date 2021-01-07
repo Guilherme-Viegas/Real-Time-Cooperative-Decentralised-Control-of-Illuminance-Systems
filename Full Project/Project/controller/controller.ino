@@ -22,6 +22,9 @@ float m;
 float b;
 byte my_address;
 
+unsigned int reset_timer = 0;
+bool reset_flag = false;
+
 
 boolean LOOP = false;
 boolean SIMULATOR = false;
@@ -112,7 +115,8 @@ void writeMsg(int id, byte msg_type, byte sender_address, float dimming=-1, byte
 void writeMsgWithFloat(int id, byte msg_type, byte sender_address, float value = 0);
 void smallMsg(int id, byte msg_type, byte sender_address);
 can_frame* readMsg(int * frames_arr_size);
-float computeReferenceLux();
+float computeReference(byte bounds);
+void resetVariables();
 //*****HUB******
 byte* float_2_bytes(float fnum, bool flag);
 float bytes2float(byte * myBytes);
@@ -374,9 +378,8 @@ void calibration_function() {
               msg_to_send = turn_off_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 0;
-              referenceLux = 0;
-              pid.setReferenceLux( 0 );
-              pid.setUff(0);
+              referenceLux = computeReference(-1);
+              pid.setReferenceLux( referenceLux, 0 );
               LOOP = true;
               SIMULATOR = true;
           } else if(flag == 1) {
@@ -385,9 +388,8 @@ void calibration_function() {
               msg_to_send = turn_max_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 100;
-              referenceLux = 85.5;
-              pid.setReferenceLux( 1000 );
-              pid.setUff(255);
+              referenceLux = computeReference(1);
+              pid.setReferenceLux( referenceLux, 255 );
               LOOP = true;
               SIMULATOR = true;
           } else {
@@ -471,9 +473,8 @@ void w8ing_consensus_msgs_function() {
       prev_state = my_state;
       my_state = standard;
       finalDimming = consensus.getFinalDimming((retrieve_index(nodes_addresses, number_of_addresses, my_address) - 1));
-      referenceLux = computeReferenceLux();
-      pid.setReferenceLux( referenceLux );
-      pid.setUff( (finalDimming*255.0) /100.0);
+      referenceLux = computeReference(0);
+      pid.setReferenceLux( referenceLux, (finalDimming*255.0) /100.0 );
       LOOP = true;
       SIMULATOR = true;
       if(DEBUG) {
@@ -515,17 +516,15 @@ void check_messages(can_frame new_msg){
       if(my_offset != -1) {
         LOOP = true;
         SIMULATOR = true;
-        referenceLux = 0;
-        pid.setReferenceLux( 0 );
-        pid.setUff( 0 );
+        referenceLux = computeReference(-1);
+        pid.setReferenceLux( referenceLux, 0 );
       }
       msg_to_send = ack;
       writeMsg(new_msg.data[1], msg_to_send, my_address);
   } else if(new_msg.data[0] == turn_max_led ) {
       finalDimming = 100;
-      referenceLux = 85.5;
-      pid.setReferenceLux( 85.5 ); //An unachievable max value(pid works out the max value
-      pid.setUff( 255.0 );
+      referenceLux = computeReference(1);
+      pid.setReferenceLux( referenceLux, 255 );
       LOOP = true;
       SIMULATOR = true;
   } else if( new_msg.data[0] == read_offset_value  ) {
@@ -656,6 +655,10 @@ void check_messages(can_frame new_msg){
       Serial.write(new_msg.data[1]);
       Serial.write(new_msg.data[2]);
       Serial.write(new_msg.data[3]);
+  } else if(new_msg.data[0] == hub_reset) {
+      prev_state = my_state;
+      my_state = booting;
+      resetVariables();
   }
 }
 
@@ -747,6 +750,12 @@ void loop() {
     Serial.println();
   }  
 
+  if( (millis() - reset_timer > 4000) and (reset_flag == true) ) {
+    reset_flag = false;
+    reset_timer = 0;
+    greeting(number_of_addresses-1);
+  }
+
   if(Serial.available()){ hub(); } 
 
   if (LOOP){
@@ -800,9 +809,13 @@ void hub()
       writeMsg(0, msg_to_send, my_address);
       transmitting = false;
   } else if( welcome[0] == 'r' && welcome[1] == 'r' && welcome[2] == 'r' && welcome[3] == 'r' ) { //Reset   
-      //Reset values and ask for everyone to go to booting state
-      //After a few seconds (3s) (saved in resetCounter variable) I send the new greeting
-      greeting(number_of_addresses-1);
+      reset_flag = true;
+      reset_timer = millis();
+      msg_to_send = hub_reset;
+      writeMsg(0, msg_to_send, my_address);
+      prev_state = my_state;
+      my_state = booting;
+      resetVariables();
   } else if( (char)welcome[0] == 'R' && (char)welcome[1] == 'P' && (char)welcome[2] == 'i' && (char)welcome[3] == 'S' ) {   //Stream
       send_time();
 
@@ -854,9 +867,8 @@ void hub()
               msg_to_send = turn_off_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 0;
-              referenceLux = 0;
-              pid.setReferenceLux( 0 );
-              pid.setUff(0);
+              referenceLux = computeReference(-1);
+              pid.setReferenceLux( referenceLux, 0 );
               LOOP = true;
               SIMULATOR = true;
           } else if(flag == 1) {
@@ -865,9 +877,8 @@ void hub()
               msg_to_send = turn_max_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 100;
-              referenceLux = 85.5;
-              pid.setReferenceLux( 85.5 );
-              pid.setUff(255);
+              referenceLux = computeReference(1);
+              pid.setReferenceLux( referenceLux, 255 );
               LOOP = true;
               SIMULATOR = true;
           } else {
@@ -902,8 +913,8 @@ void hub()
               msg_to_send = turn_off_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 0;
-              referenceLux = 0;
-              pid.setReferenceLux( 0 );
+              referenceLux = computeReference(-1);
+              pid.setReferenceLux( referenceLux, 0 );
               pid.setUff(0);
               LOOP = true;
               SIMULATOR = true;
@@ -913,9 +924,8 @@ void hub()
               msg_to_send = turn_max_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 100;
-              referenceLux = 85.5;
-              pid.setReferenceLux( 85.5 );
-              pid.setUff(255);
+              referenceLux = computeReference(1);
+              pid.setReferenceLux( referenceLux, 255 );
               LOOP = true;
               SIMULATOR = true;
           } else {
@@ -949,9 +959,8 @@ void hub()
               msg_to_send = turn_off_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 0;
-              referenceLux = 0;
-              pid.setReferenceLux( 0 );
-              pid.setUff(0);
+              referenceLux = computeReference(-1);
+              pid.setReferenceLux( referenceLux, 0 );
               LOOP = true;
               SIMULATOR = true;
           } else if(flag == 1) {
@@ -960,8 +969,8 @@ void hub()
               msg_to_send = turn_max_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 100;
-              referenceLux = 85.5;
-              pid.setReferenceLux( 85.5 );
+              referenceLux = computeReference(1);
+              pid.setReferenceLux( referenceLux, 255 );
               pid.setUff(255);
               LOOP = true;
               SIMULATOR = true;
@@ -1001,9 +1010,8 @@ void hub()
               msg_to_send = turn_off_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 0;
-              referenceLux = 0;
-              pid.setReferenceLux( 0 );
-              pid.setUff(0);
+              referenceLux = computeReference(-1);
+              pid.setReferenceLux( referenceLux, 0 );
               LOOP = true;
               SIMULATOR = true;
           } else if(flag == 1) {
@@ -1012,8 +1020,8 @@ void hub()
               msg_to_send = turn_max_led;
               writeMsg(0, msg_to_send, msg_to_send);
               finalDimming = 100;
-              referenceLux = 85.5;
-              pid.setReferenceLux( 85.5 );
+              referenceLux = computeReference(1);
+              pid.setReferenceLux( referenceLux, 255 );
               pid.setUff(255);
               LOOP = true;
               SIMULATOR = true;
@@ -1197,11 +1205,31 @@ byte checkBoundsOnAskedLux(float askedLux) {
   return 0;
 }
 
-float computeReferenceLux() {
+//If bounds == 1 then turn reference to max, if -1 turn reference to minimum and if 0 compute based on gains
+float computeReference(byte bounds) {
   float sum = 0;
   for(byte i=0; i < number_of_addresses-1; i++) {
-    sum += ((consensus.getFinalDimming(i) * 255.0) /100.0) * my_gains_vect[i];
+    if(bounds == 1) {
+      sum += 255.0 * my_gains_vect[i];
+    } else if(bounds == 0) {
+      sum += ((consensus.getFinalDimming(i) * 255.0) /100.0) * my_gains_vect[i];
+    }
   }
   sum += my_offset;
   return sum;
+}
+
+void resetVariables(){
+  nodes_addresses[0] = 0;
+  nodes_addresses[1] = my_address;
+  number_of_addresses = 2;
+  LOOP = false;
+  SIMULATOR = false;
+
+  referenceLux = 0;
+  pid.setReferenceLux( referenceLux, 0 );
+  my_offset = -1;
+  for(byte i=0; i < 3; i++) {
+    my_gains_vect[i] = 0;
+  }
 }
