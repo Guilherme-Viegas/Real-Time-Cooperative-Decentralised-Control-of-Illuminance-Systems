@@ -322,7 +322,7 @@ void find_TCP_server(ip::tcp::socket *tcp_socket, ip::tcp::endpoint *tcp_endpoin
                                   if (!error)
                                   {
                                       tcp_connection = true;
-                                      std::cout << "TCP client is connecetd to: " << tcp_socket->local_endpoint() << std::endl;
+                                      std::cout << "TCP client is connected. The local endpoint is: \t" << tcp_socket->local_endpoint() << "\t and the remote endpoint is: \t"<< tcp_endpoint->address() << std::endl;
                                       tcp_start_read_server(tcp_socket);
                                   }
                                   else
@@ -340,7 +340,7 @@ void start_UDP_connection(ip::udp::socket *udp_socket, ip::udp::endpoint *udp_en
                                   if (!error)
                                   {
                                       udp_connection = true;
-                                      std::cout << "UDP client is connecetd to: " << udp_socket->local_endpoint() << std::endl;
+                                      std::cout << "UDP client is connected. The local endpoint is: \t" << udp_socket->local_endpoint() << "\t and the remote endpoint is: \t"<< udp_endpoint->address() << std::endl;
                                       udp_start_read_server(udp_socket);
                                   }
                                   else
