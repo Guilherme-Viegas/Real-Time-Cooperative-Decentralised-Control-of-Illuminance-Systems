@@ -10,7 +10,8 @@
 #define R1 10000
 
 const byte mask= B11111000; // mask bits that are not prescale
-const int prescale = 1; //fastest possible (1 for fastest)
+const int prescale  = 8;
+const int ocr2aval  = 127;
 
 volatile bool flag;
 volatile int counter = 0;
@@ -18,6 +19,10 @@ volatile int value[71];
 long startTime = 0;
 
 float vo = 0.0;
+
+float val1 = 0;
+float val2 = 0;
+float currentVal = 0;
 
 //Interrupt for analog reading 
 ISR(TIMER1_COMPA_vect){
@@ -77,12 +82,12 @@ float voltageToAnalog(float analogInput) {
 void setup() {
   Serial.begin(2000000);
   pinMode(LED_PWM, OUTPUT);
-  TCCR2B = (TCCR2B & mask) | prescale;  //Raise Timer2 (pwm of port 3) for ldr not sensing led flicker
-
+  //TCCR2B = (TCCR2B & mask) | prescale;  //Raise Timer2 (pwm of port 3) for ldr not sensing led flicker
+     cli();
   //Fo preparing the Sampling Period Timer Interrupt
   //I STILL DONT KNOW MUCH ABOUT WHATS HAPPENING HERE
   //...ok now I know a bit more...On each 0.5s step I want samples of 0.005s = 200Hz (500 samples)(I tried with 50samples but then the time would be 0.01s and with that I couldn't pick the first values)
-  cli(); //disable interrupts
+  //cli(); //disable interrupts
   TCCR1A = 0; // clear register
   TCCR1B = 0; // clear register
   TCNT1 = 0; //reset counter
@@ -116,7 +121,10 @@ void loop() {
           flag = false;
           Serial.print(i);
           Serial.print("\t");
-          Serial.print(5.0 - (analogRead(LDR_ANALOG) * 5.0 / 1023.0));
+          val1=val2;
+          val2=currentVal;
+          currentVal = 5.0 - (analogRead(LDR_ANALOG) * 5.0 / 1023.0);
+          Serial.print( (val1+val2+currentVal) / 3.0 );
           Serial.print("\t");
           Serial.println(millis() - startTime);
         }

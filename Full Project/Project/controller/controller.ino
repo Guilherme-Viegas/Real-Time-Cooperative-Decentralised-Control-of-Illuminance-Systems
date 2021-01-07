@@ -763,7 +763,7 @@ void loop() {
     Serial.println();
   }  
 
-  if( (millis() - reset_timer > 4000) and (reset_flag == true) ) {
+  if( (millis() - reset_timer > 5000) and (reset_flag == true) ) {
     reset_flag = false;
     reset_timer = 0;
     greeting(number_of_addresses-1);
@@ -1238,6 +1238,12 @@ void resetVariables(){
   number_of_addresses = 2;
   LOOP = false;
   SIMULATOR = false;
+
+  my_cost = 1;
+  lower_L_bound = 20.0;
+  lower_L_occupied = 50.0;
+  lower_L_unoccupied = 20.0;
+  occupancy = false;
 
   referenceLux = 0;
   pid.setReferenceLux( referenceLux, 0 );
