@@ -429,7 +429,7 @@ void lamp::compute_performance_metrics_at_desk( float new_luminance, float new_d
 
     // Computes accumulated flicker error
     float flicker = ( ((new_luminance-t_luminance_prev_1)*(t_luminance_prev_1-t_luminance_prev_2)) < 0 ) ? 
-                                                ((new_luminance-t_luminance_prev_1)+(t_luminance_prev_1-t_luminance_prev_2)) : 0;
+                                                ((new_luminance-t_luminance_prev_1)+(t_luminance_prev_1-t_luminance_prev_2))/(2*SAMPLE_TIME_MILIS*std::pow(10,-3)) : 0;
     t_accumulated_flicker_error += flicker;
 
     // Updates new_values
