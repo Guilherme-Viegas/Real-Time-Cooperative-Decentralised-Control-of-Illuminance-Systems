@@ -154,6 +154,7 @@ void start_read_input(boost::asio::posix::stream_descriptor* stm_desc, ip::tcp::
                                  if (!file.is_open())
                                  {
                                      file.open(str_input.substr(0, str_input.size()).append(".txt"), std::ofstream::out);
+                                     std::cout << "It was opened a file named :'" << str_input.substr(0, str_input.size()).append(".txt") << "'" << std::endl;
                                  }
                              }
                              // find the word 'close'
@@ -321,7 +322,7 @@ void find_TCP_server(ip::tcp::socket* tcp_socket, ip::tcp::endpoint* tcp_endpoin
                                   if (!error)
                                   {
                                       tcp_connection = true;
-                                      std::cout << "TCP client is UP" << std::endl;
+                                      std::cout << "TCP client is connecetd to: " << tcp_socket->local_endpoint() << std::endl;
                                       tcp_start_read_server(tcp_socket);
                                   }
                                   else
@@ -339,7 +340,7 @@ void start_UDP_connection(ip::udp::socket* udp_socket, ip::udp::endpoint* udp_en
                                   if (!error)
                                   {
                                       udp_connection = true;
-                                      std::cout << "UDP connection is UP" << std::endl;
+                                      std::cout << "UDP client is connecetd to: " << udp_socket->local_endpoint() << std::endl;
                                       udp_start_read_server(udp_socket);
                                   }
                                   else
@@ -389,7 +390,8 @@ int main()
     }
 
     if (file.is_open())
-    {
+    {   
+        std::cout << "A file has been written." << std::endl;
         file.close();
     }
 

@@ -48,6 +48,7 @@ void office::updates_database( char command[], uint8_t size )
             value = 0;
             set_command = 1;
         }
+        
         break;
     }
     case 't':   //  get elapsed time since last restart
@@ -376,7 +377,7 @@ void office::restart_it_all( int lamps )
     std::vector<int>::size_type sz = t_clients_address.size();
     for (int clt = sz - 1; clt >= 0; clt--)
     {
-        if( t_clients_command.at(clt).compare("0A0") ) // if message is to restart does not restart
+        if( t_clients_command.at(clt).compare("A00") ) // if message is to restart does not restart
         {
             t_clients_address.erase( t_clients_address.begin() + clt );
             t_clients_command.erase( t_clients_command.begin() + clt );

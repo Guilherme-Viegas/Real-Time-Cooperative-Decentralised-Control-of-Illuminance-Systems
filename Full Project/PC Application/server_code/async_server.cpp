@@ -47,11 +47,11 @@ void udp_server::handle_receive(const boost::system::error_code &error, size_t b
                                        std::cout << response << std::endl;
                                    });
         }
-        else if (order == 'b')  // get last minute buffer of variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
+        else if (order == 'b') // get last minute buffer of variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
         {
             send_last_minute(header, type, address);
         }
-        else if (order == 's')  // stop stream of real-time variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
+        else if (order == 's') // stop stream of real-time variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
         {
             set_stream(type, address);
         }
@@ -118,13 +118,13 @@ tcp_server::tcp_server(boost::asio::io_service *io, unsigned short port, office 
 }
 
 tcp_server::~tcp_server()
-{   
+{
     t_acceptor.close();
 
     // delete all clients backwards
     std::vector<int>::size_type sz = connections.size();
-    for (unsigned int i = 0; i < sz ; i++)
-    {   
+    for (unsigned int i = 0; i < sz; i++)
+    {
         delete connections.at(i);
     }
 }
@@ -134,7 +134,7 @@ tcp_server::~tcp_server()
 void tcp_server::start_accept()
 {
     new_connection = new tcp_connection{t_io, t_database, t_serial};
-    connections.push_back(new_connection);  // save clients in the list
+    connections.push_back(new_connection); // save clients in the list
 
     t_acceptor.async_accept(new_connection->socket(),
                             [this](const boost::system::error_code &err) {
@@ -207,8 +207,8 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
         {
             t_serial->write_command("+rrrr");
             t_database->t_clients_address.push_back(t_client_address); // appends the clients address
-            t_database->t_clients_command.push_back("0A0");            // appends the new command --- to be equal as the order instructions
-            t_database->t_acknowledge.push_back(0);
+            t_database->t_clients_command.push_back("A00");            // appends the new command --- to be equal as the order instructions
+            t_database->t_acknowledge.push_back(-2);
             valid_response = 0;
         }
 
@@ -349,8 +349,8 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                         valid_response = -1;
                     }
                     else
-                    {   
-                        std::string client_msg = std::string(1,type) + std::to_string(address);
+                    {
+                        std::string client_msg = std::string(1, type) + std::to_string(address);
                         // command already in stack
                         if (std::find(t_database->t_clients_command.begin(), t_database->t_clients_command.end(), client_msg) != t_database->t_clients_command.end())
                         {
@@ -359,11 +359,11 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                         else
                         {
                             valid_response = 0;
-                            std::string to_arduino = '+' + client_msg + "**"; 
+                            std::string to_arduino = '+' + client_msg + "**";
                             t_serial->write_command(to_arduino);
-                            t_database->t_clients_address.push_back(t_client_address);                                                                     
-                            t_database->t_clients_command.push_back(client_msg);                                                                              // appends the new command
-                            t_database->t_acknowledge.push_back(0);                                                                                           
+                            t_database->t_clients_address.push_back(t_client_address);
+                            t_database->t_clients_command.push_back(client_msg); // appends the new command
+                            t_database->t_acknowledge.push_back(-2);
                         }
                     }
                     break;
@@ -389,7 +389,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                 {
                     valid_response = 0; // arduino message
                     int int_value = round(value * 10);
-                    std::string client_msg = std::string(1, order) + std::to_string(address) + std::to_string(int_value);   // in this case the var order is the type once it is a set command
+                    std::string client_msg = std::string(1, order) + std::to_string(address) + std::to_string(int_value); // in this case the var order is the type once it is a set command
                     std::cout << t_client_address << "\t" << client_msg << std::endl;
 
                     // command already in stack
@@ -399,13 +399,13 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                     }
                     else
                     {
-                        u_int8_t val[2]{};                                                                                                                // 2 bytes with float value
-                        t_database->float_2_bytes(value, val);                                                                                            // converts the float to 12 decimal bit and 4 floats
+                        u_int8_t val[2]{};                                                                                                                            // 2 bytes with float value
+                        t_database->float_2_bytes(value, val);                                                                                                        // converts the float to 12 decimal bit and 4 floats
                         std::string to_arduino = '+' + std::string(1, order) + std::to_string(address) + std::string(1, (char)val[1]) + std::string(1, (char)val[0]); // msg to be sent
-                        t_serial->write_command(to_arduino);                                                                                              // sent message
-                        t_database->t_clients_address.push_back(t_client_address);                                                                        // appends the clients address
-                        t_database->t_clients_command.push_back(client_msg);                                                                              // appends the new command
-                        t_database->t_acknowledge.push_back(0);                                                                                           // appends the arduino response
+                        t_serial->write_command(to_arduino);                                                                                                          // sent message
+                        t_database->t_clients_address.push_back(t_client_address);                                                                                    // appends the clients address
+                        t_database->t_clients_command.push_back(client_msg);                                                                                          // appends the new command
+                        t_database->t_acknowledge.push_back(-2);                                                                                                       // appends the arduino response
                     }
                 }
                 break;
@@ -448,12 +448,12 @@ void tcp_connection::send_acknowledgement(bool ack_err)
  * Sends string
  */
 void tcp_connection::send_string(std::string s)
-{   
+{
     s += '\n';
     t_socket.async_send(boost::asio::buffer(s.c_str(), s.size()),
-                                [s](const boost::system::error_code &t_ec, std::size_t len) {
-                                    std::cout << s << std::endl;
-                                });
+                        [s](const boost::system::error_code &t_ec, std::size_t len) {
+                            std::cout << s << std::endl;
+                        });
 }
 
 /*
@@ -461,46 +461,50 @@ void tcp_connection::send_string(std::string s)
  */
 void tcp_connection::start_timer()
 {
-    t_timer.expires_after(boost::asio::chrono::milliseconds{1500});     // it takes in avergare 1s and 500ms
+    t_timer.expires_after(boost::asio::chrono::milliseconds{1500}); // it takes in avergare 1s and 500ms
     t_timer.async_wait([this](const boost::system::error_code &t_ec) {
-        
         bool last_call = false;
         if (t_ec || !t_socket.is_open())
         {
             last_call = true; // erase all commands of that client
         }
 
-        std::cout << "\nt_client_address: " << t_client_address << std::endl;
         // delete index from the last when the client is done
         std::vector<int>::size_type sz = t_database->t_clients_address.size();
         for (int clt = sz - 1; clt >= 0; clt--)
-        {
-            std::cout << "\tclient_comand: " << t_database->t_clients_address.at(clt) << std::endl;
+        {   
+            std::cout << "Queue of waiting for acknowledge instructions.\nNumber of pendent instructions: " << sz << std::endl;
+            std::cout << "Client's id: " << t_client_address << std::endl;
+            
             if (!t_database->t_clients_address.at(clt).compare(t_client_address)) // client has a pendent process
             {
-                std::cout << "\t\tvalor:" << t_database->t_acknowledge.at(clt) << std::endl;
+                std::cout << "Waiting message value:" << t_database->t_acknowledge.at(clt) << std::endl;
 
-                if (t_database->t_acknowledge.at(clt) == 0 && !last_call)
+                if ((t_database->t_acknowledge.at(clt) == -2) && !last_call)
                 {
                     continue;
                 }
                 // 'ack' to be sent
                 if (!last_call)
-                {   
-                    if( (char)t_database->t_clients_command.at(clt)[0] == 'x' || (char)t_database->t_clients_command.at(clt)[0] == 'r' )   // get command
-                    {   
-                        std::string response = std::string(1, (char)t_database->t_clients_command.at(clt)[1] ) + '\t' +
-                                                std::string(1, (char)t_database->t_clients_command.at(clt)[0] ) + '\t' +
-                                                std::to_string ( t_database->t_acknowledge.at(clt) / 10.0 );
+                {
+                    if (((char)t_database->t_clients_command.at(clt)[0] == 'x') || ((char)t_database->t_clients_command.at(clt)[0] == 'r')) // get command
+                    {
+                        std::string response = std::string(1, (char)t_database->t_clients_command.at(clt)[1]) + '\t' +
+                                               std::string(1, (char)t_database->t_clients_command.at(clt)[0]) + '\t' +
+                                               std::to_string(t_database->t_acknowledge.at(clt) / 10.0);
                         send_string(response);
                     }
-                                                
-                    else    // set commands wainting for acknoledge
-                    {   
+
+                    else // set commands wainting for acknoledge
+                    {
                         send_acknowledgement(t_database->t_acknowledge.at(clt) == 1 ? true : false);
                     }
                 }
                 // erase commands
+                std::cout << "The command \t " << t_database->t_clients_command.at(clt)
+                          << "\t poped out to \t" << t_database->t_clients_address.at(clt)
+                          << "\t whit the value \t" << t_database->t_acknowledge.at(clt) << std::endl;
+
                 t_database->t_acknowledge.erase(t_database->t_acknowledge.begin() + clt);
                 t_database->t_clients_command.erase(t_database->t_clients_command.begin() + clt); // if the clients wants to know the command, print this before send teh acknowledge
                 t_database->t_clients_address.erase(t_database->t_clients_address.begin() + clt);
