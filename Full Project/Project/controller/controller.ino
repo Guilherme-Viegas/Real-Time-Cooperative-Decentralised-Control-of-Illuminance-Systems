@@ -125,6 +125,7 @@ float bytes_2_float_2decimals(byte * myBytes);
 void greeting(int numLamps);
 void hub();
 void send_time();
+void sendHubInitials();
 
 
 /*------------------------------------|
@@ -767,6 +768,7 @@ void loop() {
     reset_flag = false;
     reset_timer = 0;
     greeting(number_of_addresses-1);
+    sendHubInitials();
   }
 
   if(Serial.available()){ hub(); } 
@@ -811,7 +813,7 @@ void hub()
   }
   
   Serial.readBytes(welcome, BUFFER_SIZE);
-  byte addr_to_send = (int)welcome[1]-48;
+  byte addr_to_send = nodes_addresses[retrieve_index(nodes_addresses, number_of_addresses, (int)welcome[1]-48)];
   byte received_val[2] = {welcome[2], welcome[3]};
   float new_bound = bytes2float(received_val);
   bool new_occupancy = (bool)(new_bound);
@@ -830,42 +832,7 @@ void hub()
       my_state = booting;
       resetVariables();
   } else if( (char)welcome[0] == 'R' && (char)welcome[1] == 'P' && (char)welcome[2] == 'i' && (char)welcome[3] == 'S' ) {   //Stream
-      send_time();
-
-      bool state[number_of_addresses-1] = {0};
-      for(int a=0; a<number_of_addresses-1; a++)
-      {
-        Serial.write("+o");
-        Serial.write(a+1);
-        Serial.write(state[a]);
-        Serial.write('*');
-      }
-
-      for(int a=0; a<number_of_addresses-1; a++)
-      {
-        Serial.write("+O");
-        Serial.write(a+1);
-        float_2_bytes(lower_L_occupied, false);
-      }
-  
-      for(int a=0; a<number_of_addresses-1; a++)
-      {
-        Serial.write("+U");
-        Serial.write(a+1);
-        float_2_bytes(lower_L_unoccupied, false);
-      }
-  
-      for(int a=0; a<number_of_addresses-1; a++)
-      {
-        Serial.write("+c");
-        Serial.write(a+1);
-        float_2_bytes(my_cost, false);
-      }
-
-      msg_to_send = hub_request_stream;
-      writeMsg(0, msg_to_send, my_address);
-      address_to_send_stream = my_address;
-      transmitting = true;
+      sendHubInitials();
   } else if(welcome[0] == 'o') {
       if(addr_to_send == my_address) {
         if(occupancy != new_occupancy) { //Only if it's different I need to do another consensus
@@ -1251,4 +1218,43 @@ void resetVariables(){
   for(byte i=0; i < 3; i++) {
     my_gains_vect[i] = 0;
   }
+}
+
+void sendHubInitials() {
+  send_time();
+
+  bool state[number_of_addresses-1] = {0};
+  for(int a=0; a<number_of_addresses-1; a++)
+  {
+    Serial.write("+o");
+    Serial.write(a+1);
+    Serial.write(state[a]);
+    Serial.write('*');
+  }
+
+  for(int a=0; a<number_of_addresses-1; a++)
+  {
+    Serial.write("+O");
+    Serial.write(a+1);
+    float_2_bytes(lower_L_occupied, false);
+  }
+
+  for(int a=0; a<number_of_addresses-1; a++)
+  {
+    Serial.write("+U");
+    Serial.write(a+1);
+    float_2_bytes(lower_L_unoccupied, false);
+  }
+
+  for(int a=0; a<number_of_addresses-1; a++)
+  {
+    Serial.write("+c");
+    Serial.write(a+1);
+    float_2_bytes(my_cost, false);
+  }
+
+  msg_to_send = hub_request_stream;
+  writeMsg(0, msg_to_send, my_address);
+  address_to_send_stream = my_address;
+  transmitting = true;
 }
