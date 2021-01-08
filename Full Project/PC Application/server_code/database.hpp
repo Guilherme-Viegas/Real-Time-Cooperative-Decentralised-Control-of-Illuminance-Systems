@@ -72,18 +72,18 @@ private: // this things are private
     int t_num_lamps = -1; // TODO comando para dar update se houver um restart
 
     // streams
-    bool t_stream = false;
-    char t_stream_type = ' ';
-    int t_stream_address = 0;
     boost::asio::ip::udp::socket *t_socket;
-    boost::asio::ip::udp::endpoint *t_endpoint;
+
+    std::vector<boost::asio::ip::udp::endpoint> t_udp_endpoints{};
+    std::vector<char> t_udp_stream_type{};
+    std::vector<int> t_udp_stream_address{};
 
     std::mutex t_mutex;
 
     // functions
     float bytes_2_float(uint8_t most_significative_bit, uint8_t less_significative_bit) const;
     void restart_it_all(int lamps);
-    void udp_stream(float);
+    void udp_stream( int address );
 
 public: // this things are public
     // it is access by the async_server
@@ -105,7 +105,7 @@ public: // this things are public
     float get_instant_power();
     float get_accumulated_visibility_error();
     float get_accumulated_flicker_error();
-    int set_upd_stream(char type = ' ', int address = 0, boost::asio::ip::udp::socket *socket = NULL, boost::asio::ip::udp::endpoint *endpoint = NULL);
+    int set_upd_stream(char type, int address, boost::asio::ip::udp::socket *socket, boost::asio::ip::udp::endpoint endpoint);
     int get_num_lamps();
 };
 

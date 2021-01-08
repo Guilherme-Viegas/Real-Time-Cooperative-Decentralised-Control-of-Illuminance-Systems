@@ -49,17 +49,17 @@ void udp_server::handle_receive(const boost::system::error_code &error, size_t b
         }
         else if (order == 'b') // get last minute buffer of variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
         {
-            send_last_minute(header, type, address);
+            send_last_minute(header, type, address, t_remote_endpoint);
         }
         else if (order == 's') // stop stream of real-time variable <x> of desk <i>; NOTE: <x> can be 'l' or 'd'
         {
-            set_stream(type, address);
+            set_stream(type, address, t_remote_endpoint);
         }
     }
     start_receive();
 }
 
-void udp_server::send_last_minute(std::string header, char type, int address)
+void udp_server::send_last_minute(std::string header, char type, int address, udp::endpoint remote_endpoint)
 {
     std::unique_ptr<float[]> value = t_database->t_lamps_array[address - 1]->t_luminance.get_all();
 
@@ -69,16 +69,16 @@ void udp_server::send_last_minute(std::string header, char type, int address)
 
         response = header + response.erase(response.size() - 5);
 
-        t_socket.async_send_to(boost::asio::buffer(response.c_str(), response.size()), t_remote_endpoint,
+        t_socket.async_send_to(boost::asio::buffer(response.c_str(), response.size()), remote_endpoint,
                                [response](const boost::system::error_code &t_ec, std::size_t len) {
                                    std::cout << response << std::endl;
                                });
     }
 }
 
-void udp_server::set_stream(char type, int address)
+void udp_server::set_stream(char type, int address, udp::endpoint remote_endpoint)
 {
-    int decision = t_database->set_upd_stream(type, address, &t_socket, &t_remote_endpoint);
+    int decision = t_database->set_upd_stream(type, address, &t_socket, remote_endpoint);
     std::cout << "Decision = " << decision << std::endl;
     if (decision == 0)
     {

@@ -26,8 +26,8 @@ class udp_server
 private:
     void start_receive();
     void handle_receive(const boost::system::error_code &error, size_t bytes_transferred);
-    void send_last_minute(std::string header, char type, int address);
-    void set_stream(char type, int address);
+    void send_last_minute(std::string header, char type, int address, udp::endpoint remote_endpoint);
+    void set_stream(char type, int address, udp::endpoint remote_endpoint);
     void send_acknowledgement(bool ack_err);
 
     office *t_database;

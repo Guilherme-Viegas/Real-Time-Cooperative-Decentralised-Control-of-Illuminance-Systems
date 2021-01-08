@@ -152,9 +152,16 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                                  str_input.erase(file_itr, 5);
 
                                  if (!file.is_open())
-                                 {
-                                     file.open(str_input.substr(0, str_input.size()).append(".txt"), std::ofstream::out);
-                                     std::cout << "It was opened a file named :'" << str_input.substr(0, str_input.size()).append(".txt") << "'" << std::endl;
+                                 {   
+                                     time_t t = time(0);   // get time now
+                                     struct tm * now = localtime( & t );
+
+                                     char buffer [80];
+                                     strftime (buffer,BUFFER_SIZE,"- %Y/%m/%d/%T",now);
+
+                                     std::string name_file = str_input.substr(0, str_input.size()-1) + std::string(buffer) + std::string(".txt");
+                                     file.open(name_file, std::ofstream::out);
+                                     std::cout << "It was opened a file named :'" << name_file << "'" << std::endl;
                                  }
                              }
                              // find the word 'close'
@@ -358,11 +365,11 @@ int main()
     // Connects to the endpoints
     // https://www.whatismyip.com
     ip::tcp::socket tcp_socket(io);
-    ip::tcp::endpoint tcp_endpoint(ip::address::from_string("148.71.71.213"), PORT); // 148.71.71.213
+    ip::tcp::endpoint tcp_endpoint(ip::address::from_string("127.0.0.1"), PORT); // 148.71.71.213
     find_TCP_server(&tcp_socket, &tcp_endpoint);
 
     ip::udp::socket udp_socket(io);
-    ip::udp::endpoint udp_endpoint(ip::address::from_string("148.71.71.213"), PORT + 1); // 148.71.71.213
+    ip::udp::endpoint udp_endpoint(ip::address::from_string("127.0.0.1"), PORT + 1); // 148.71.71.213
     start_UDP_connection(&udp_socket, &udp_endpoint);
 
     boost::asio::posix::stream_descriptor stm_desc{io, ::dup(STDIN_FILENO)};
