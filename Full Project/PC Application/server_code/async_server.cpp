@@ -463,7 +463,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
         }
         else if (valid_response == 2) // get command
         {
-            std::string client_msg = std::string(1, type) + std::to_string(address);
+            std::string client_msg = std::string(1, order) + std::to_string(address);
             // command already in stack
             if (std::find(t_database->t_clients_command.begin(), t_database->t_clients_command.end(), client_msg) != t_database->t_clients_command.end())
             {
