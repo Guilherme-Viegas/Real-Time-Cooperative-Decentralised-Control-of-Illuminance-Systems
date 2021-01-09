@@ -480,7 +480,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                 t_serial->write_command(to_arduino);                                                                                                          // sent message
                 t_database->t_clients_address.push_back(t_client_address);                                                                                    // appends the clients address
                 t_database->t_clients_command.push_back(client_msg);                                                                                          // appends the new command
-                t_database->t_acknowledge.push_back(0);                                                                                                       // appends the arduino response
+                t_database->t_acknowledge.push_back(-2);                                                                                                       // appends the arduino response
             }
         }
 
