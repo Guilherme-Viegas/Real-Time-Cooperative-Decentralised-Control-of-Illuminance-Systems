@@ -211,7 +211,6 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
             t_database->t_acknowledge.push_back(-2);
             valid_response = 0;
         }
-
         else if (0 > address || address > t_database->get_num_lamps())
         {
             valid_response = -1;
@@ -377,36 +376,71 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                 break;
             }
             case 'c': // set current energy cost at desk <x>
+            {
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else if (value >= 0) // acceptable value
+                {
+                    valid_response = 2; // do nothing
+                }
+                else
+                {
+                    valid_response = 0; // do nothing
+                    send_acknowledgement(false);
+                }
+                break;
+            }
             case 'O': // set lower bound on illuminance for Occupied state at desk <i>
+            {
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else if (value >= 0 && value > t_database->t_lamps_array[address - 1]->get_unoccupied_value()) // acceptable value
+                {
+                    valid_response = 2; // do nothing
+                }
+                else
+                {
+                    valid_response = 0; // do nothing
+                    send_acknowledgement(false);
+                }
+                break;
+            }
             case 'o': // set current occupancy state at desk <i>
+            {
+                if (address == 0)
+                {
+                    valid_response = -1;
+                }
+                else if (value >= 0) // acceptable value
+                {
+                    value = value < 0.05 ? (int)0 : (int)1;
+                    valid_response = 2; // do nothing
+                }
+                else
+                {
+                    valid_response = 0; // do nothing
+                    send_acknowledgement(false);
+                }
+                break;
+            }
             case 'U': // set lower bound on illuminance for Unoccupied state at desk <i>
             {
                 if (address == 0)
                 {
                     valid_response = -1;
                 }
+                else if (value >= 0 && value < t_database->t_lamps_array[address - 1]->get_occupied_value()) // acceptable value
+                {
+                    valid_response = 2; // do nothing
+                }
                 else
                 {
-                    valid_response = 0; // arduino message
-                    int int_value = round(value * 10);
-                    std::string client_msg = std::string(1, order) + std::to_string(address) + std::to_string(int_value); // in this case the var order is the type once it is a set command
-                    std::cout << t_client_address << "\t" << client_msg << std::endl;
-
-                    // command already in stack
-                    if (std::find(t_database->t_clients_command.begin(), t_database->t_clients_command.end(), client_msg) != t_database->t_clients_command.end())
-                    {
-                        send_acknowledgement(false);
-                    }
-                    else
-                    {
-                        u_int8_t val[2]{};                                                                                                                            // 2 bytes with float value
-                        t_database->float_2_bytes(value, val);                                                                                                        // converts the float to 12 decimal bit and 4 floats
-                        std::string to_arduino = '+' + std::string(1, order) + std::to_string(address) + std::string(1, (char)val[1]) + std::string(1, (char)val[0]); // msg to be sent
-                        t_serial->write_command(to_arduino);                                                                                                          // sent message
-                        t_database->t_clients_address.push_back(t_client_address);                                                                                    // appends the clients address
-                        t_database->t_clients_command.push_back(client_msg);                                                                                          // appends the new command
-                        t_database->t_acknowledge.push_back(-2);                                                                                                      // appends the arduino response
-                    }
+                    valid_response = 0; // do nothing
+                    send_acknowledgement(false);
                 }
                 break;
             }
@@ -417,18 +451,38 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
             }
             }
         }
-
-        if (valid_response == -1)
+        if (valid_response == -1) // invalid command
         {
             response = "The number of Total desks connected in the network is: " + std::to_string(t_database->get_num_lamps());
+            valid_response = 1;
         }
 
-        if (valid_response != 0) // there is a response to send
+        if (valid_response == 1) // there is a response to send
         {
             send_string(response);
         }
+        else if (valid_response == 2) // get command
+        {
+            std::string client_msg = std::string(1, type) + std::to_string(address);
+            // command already in stack
+            if (std::find(t_database->t_clients_command.begin(), t_database->t_clients_command.end(), client_msg) != t_database->t_clients_command.end())
+            {
+                send_acknowledgement(false);
+            }
+            else
+            {
+                u_int8_t val[2]{};                                                                                                                            // 2 bytes with float value
+                t_database->float_2_bytes(value, val);                                                                                                        // converts the float to 12 decimal bit and 4 floats
+                std::string to_arduino = '+' + std::string(1, order) + std::to_string(address) + std::string(1, (char)val[1]) + std::string(1, (char)val[0]); // msg to be sent
+                t_serial->write_command(to_arduino);                                                                                                          // sent message
+                t_database->t_clients_address.push_back(t_client_address);                                                                                    // appends the clients address
+                t_database->t_clients_command.push_back(client_msg);                                                                                          // appends the new command
+                t_database->t_acknowledge.push_back(-2);
+            }
+        }
+
+        start_receive();
     }
-    start_receive();
 }
 
 /*
