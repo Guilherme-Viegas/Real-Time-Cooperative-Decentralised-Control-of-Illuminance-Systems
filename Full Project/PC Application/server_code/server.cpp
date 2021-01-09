@@ -25,16 +25,24 @@ void start_timer(boost::asio::steady_timer *timer)
     });
 }
 
+void safety_exit( int sig )
+{
+        std::cout << "\t Safely close the client with signal: " << sig << std::endl;
+        io.stop();  
+}
+
 int main()
 {
     // close server after x seconds
     boost::asio::steady_timer timer{io};
     start_timer(&timer);
 
-    std::signal(SIGINT, [](int sig) {
-        std::cout << "\t Querias batinhas com enguias ...\n";
-        io.stop();
-    });
+    std::signal(SIGABRT, safety_exit);
+    std::signal(SIGFPE, safety_exit);
+    std::signal(SIGILL, safety_exit);
+    std::signal(SIGINT, safety_exit);
+    std::signal(SIGSEGV, safety_exit);
+    std::signal(SIGTERM, safety_exit);
 
     // init serial
     communications the_serial{&io};

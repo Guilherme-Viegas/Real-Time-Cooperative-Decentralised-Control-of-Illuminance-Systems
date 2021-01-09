@@ -359,6 +359,12 @@ void start_UDP_connection(ip::udp::socket *udp_socket, ip::udp::endpoint *udp_en
                               });
 }
 
+void safety_exit( int sig )
+{
+    std::cout << "\t Safely close the client with signal: " << sig << std::endl;
+    stop_server = true;
+}
+
 int main()
 {
     io_context io;
@@ -379,7 +385,12 @@ int main()
 
     start_read_input(&stm_desc, &tcp_socket, &udp_socket);
 
-    std::signal(SIGINT, [](int sig) { std::cout << "\t Safely close the client \n"; stop_server = true; });
+    std::signal(SIGABRT, safety_exit);
+    std::signal(SIGFPE, safety_exit);
+    std::signal(SIGILL, safety_exit);
+    std::signal(SIGINT, safety_exit);
+    std::signal(SIGSEGV, safety_exit);
+    std::signal(SIGTERM, safety_exit);
 
     while (!stop_server)
     {

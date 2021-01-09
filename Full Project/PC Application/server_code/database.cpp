@@ -41,6 +41,9 @@ void office::updates_database(char command[], uint8_t size)
     //bool error = (int)(uint8_t)( 0x0F & command[3]) == 15;
     bool error = (0x8 & command[2]);
 
+    // prevent sge fault from arduino
+    if( address < 0 || address >= t_num_lamps ){ return; }
+
     switch (type)
     {
     case 'A': // restart
