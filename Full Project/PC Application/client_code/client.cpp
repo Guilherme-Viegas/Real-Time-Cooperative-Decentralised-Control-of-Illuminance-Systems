@@ -157,11 +157,12 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                                      struct tm * now = localtime( & t );
 
                                      char buffer [80];
-                                     strftime (buffer,BUFFER_SIZE,"- %Y/%m/%d/%T",now);
+                                     strftime (buffer,BUFFER_SIZE," - %d:%m:%Y:%T",now);
 
                                      std::string name_file = str_input.substr(0, str_input.size()-1) + std::string(buffer) + std::string(".txt");
-                                     file.open(name_file, std::ofstream::out);
-                                     std::cout << "It was opened a file named :'" << name_file << "'" << std::endl;
+
+                                     file.open(name_file.c_str(), std::ofstream::out);
+                                    if( file.is_open() ){ std::cout << "It was opened a file named :'" << name_file << "'" << std::endl; }
                                  }
                              }
                              // find the word 'close'
@@ -329,7 +330,7 @@ void find_TCP_server(ip::tcp::socket *tcp_socket, ip::tcp::endpoint *tcp_endpoin
                                   if (!error)
                                   {
                                       tcp_connection = true;
-                                      std::cout << "TCP client is connected. The local endpoint is: \t" << tcp_socket->local_endpoint() << "\t and the remote endpoint is: \t"<< tcp_endpoint->address() << std::endl;
+                                      std::cout << "TCP client is connected. The local endpoint is: " << tcp_socket->local_endpoint() << "\t and \t the remote endpoint is: "<< tcp_endpoint->address() << std::endl;
                                       tcp_start_read_server(tcp_socket);
                                   }
                                   else
@@ -347,7 +348,7 @@ void start_UDP_connection(ip::udp::socket *udp_socket, ip::udp::endpoint *udp_en
                                   if (!error)
                                   {
                                       udp_connection = true;
-                                      std::cout << "UDP client is connected. The local endpoint is: \t" << udp_socket->local_endpoint() << "\t and the remote endpoint is: \t"<< udp_endpoint->address() << std::endl;
+                                      std::cout << "UDP client is connected. The local endpoint is: " << udp_socket->local_endpoint() << "\t and \t the remote endpoint is: "<< udp_endpoint->address() << std::endl;
                                       udp_start_read_server(udp_socket);
                                   }
                                   else
@@ -365,11 +366,11 @@ int main()
     // Connects to the endpoints
     // https://www.whatismyip.com
     ip::tcp::socket tcp_socket(io);
-    ip::tcp::endpoint tcp_endpoint(ip::address::from_string("127.0.0.1"), PORT); // 148.71.71.213
+    ip::tcp::endpoint tcp_endpoint(ip::address::from_string("148.71.71.213"), PORT); // 148.71.71.213
     find_TCP_server(&tcp_socket, &tcp_endpoint);
 
     ip::udp::socket udp_socket(io);
-    ip::udp::endpoint udp_endpoint(ip::address::from_string("127.0.0.1"), PORT + 1); // 148.71.71.213
+    ip::udp::endpoint udp_endpoint(ip::address::from_string("148.71.71.213"), PORT + 1); // 148.71.71.213
     start_UDP_connection(&udp_socket, &udp_endpoint);
 
     boost::asio::posix::stream_descriptor stm_desc{io, ::dup(STDIN_FILENO)};
