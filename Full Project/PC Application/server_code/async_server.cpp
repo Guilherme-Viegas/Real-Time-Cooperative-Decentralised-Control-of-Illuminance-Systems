@@ -463,7 +463,10 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
         }
         else if (valid_response == 2) // get command
         {
-            std::string client_msg = std::string(1, order) + std::to_string(address);
+            int int_value = round(value * 10);
+            std::string client_msg = std::string(1, order) + std::to_string(address) + std::to_string(int_value); // in this case the var order is the type once it is a set command
+            std::cout << t_client_address << "\t" << client_msg << std::endl;
+
             // command already in stack
             if (std::find(t_database->t_clients_command.begin(), t_database->t_clients_command.end(), client_msg) != t_database->t_clients_command.end())
             {
@@ -477,7 +480,7 @@ void tcp_connection::handle_receive(const boost::system::error_code &error, size
                 t_serial->write_command(to_arduino);                                                                                                          // sent message
                 t_database->t_clients_address.push_back(t_client_address);                                                                                    // appends the clients address
                 t_database->t_clients_command.push_back(client_msg);                                                                                          // appends the new command
-                t_database->t_acknowledge.push_back(-2);
+                t_database->t_acknowledge.push_back(0);                                                                                                       // appends the arduino response
             }
         }
 
