@@ -457,10 +457,10 @@ void lamp::compute_performance_metrics_at_desk(float new_luminance, float new_du
     // Computes accumulated visibility error
     t_n_samples++;
     double Reference = t_state ? t_occupied_value : t_unoccupied_value;
-    t_accumulated_visibility_error = ((t_n_samples - 1) * t_accumulated_flicker_error + std::max(0.0, Reference - new_luminance)) / t_n_samples;
+    t_accumulated_visibility_error = ((t_n_samples - 1) * t_accumulated_visibility_error + std::max(0.0, Reference - new_luminance)) / t_n_samples;
 
     // Computes accumulated flicker error
-    float flicker = (((new_luminance - t_luminance_prev_1) * (t_luminance_prev_1 - t_luminance_prev_2)) < 0) ? ((new_luminance - t_luminance_prev_1) + (t_luminance_prev_1 - t_luminance_prev_2)) / (2 * SAMPLE_TIME_MILIS * std::pow(10, -3)) : 0;
+    float flicker = (((new_luminance - t_luminance_prev_1) * (t_luminance_prev_1 - t_luminance_prev_2)) < 0) ? (abs(new_luminance - t_luminance_prev_1) + abs(t_luminance_prev_1 - t_luminance_prev_2)) / (2 * SAMPLE_TIME_MILIS * std::pow(10, -3)) : 0;
     t_accumulated_flicker_error += flicker;
 
     // Updates new_values

@@ -211,7 +211,7 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
 
                                      udp_client->async_send(buffer(command, strlen(command)),
                                                             [=](const boost::system::error_code &err, std::size_t len) {
-                                                                std::cout << "[UDP] client: " << str_command << std::endl;
+                                                                //std::cout << "[UDP] client: " << str_command << std::endl;
                                                             });
                                  }
                                  else
@@ -229,7 +229,7 @@ void start_read_input(boost::asio::posix::stream_descriptor *stm_desc, ip::tcp::
                                      type = '.';
                                  }
 
-                                 std::cout << "type: " << type << " address: " << address << " trash: " << trash << std::endl;
+                                 //std::cout << "type: " << type << " address: " << address << " trash: " << trash << std::endl;
                                  switch (type)
                                  {
                                  case 'e': // get accumulated energy consumption in the system <T> or at desk <i> since the last restart
